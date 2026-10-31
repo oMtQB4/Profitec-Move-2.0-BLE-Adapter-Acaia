@@ -117,8 +117,8 @@ because Docker Desktop on macOS cannot pass USB devices into containers.
 No ESP-IDF needed. Each [release](../../releases) has two assets:
 
 - `acaia-bridge-esp32s3-vX.Y.Z-merged.bin`: the complete image, flashed at address `0x0`.
-- `acaia-bridge-esp32s3-vX.Y.Z.zip`: the same image plus a flashing guide (README), the changelog
-  and the separate images with `flash_args`.
+- `acaia-bridge-esp32s3-vX.Y.Z.zip`: the same image plus a flashing guide (README), the changelog,
+  the license and the separate images with `flash_args`.
 
 Connect the board with a USB data cable. On boards with two USB-C ports use the native **USB**
 port, not **UART/COM**.
@@ -262,3 +262,13 @@ The drivers re-implement byte formats documented by these projects; no code was 
   [Pourista](https://github.com/DrSkyFly/Pourista), [talla](https://github.com/talla-speciality/talla) (Goat Story Gina)
 - Acaia: [AcaiaArduinoBLE](https://github.com/tatemazer/AcaiaArduinoBLE), [pyacaia](https://github.com/lucapinello/pyacaia),
   [aioacaia](https://github.com/zweckj/aioacaia) (real Lunar 2021 GATT dump and frame captures)
+
+## License
+
+[MIT](LICENSE): free to use, modify and redistribute, also commercially, as long as the copyright
+and license notice stay with it. The software is provided **as is, without any warranty**; use at
+your own risk, including on your coffee machine and scale.
+
+This project is not affiliated with or endorsed by Profitec, Acaia, Eureka or any other scale
+maker; product names are trademarks of their owners. The firmware bundles ESP-IDF,
+esp-nimble-cpp and led_strip, which are under the Apache License 2.0.

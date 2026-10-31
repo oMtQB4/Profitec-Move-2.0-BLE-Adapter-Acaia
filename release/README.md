@@ -11,6 +11,7 @@ weight of another Bluetooth scale. Project, supported scales and pairing guide:
 | `acaia-bridge-esp32s3-{{VERSION}}-merged.bin` | Complete image (bootloader, partition table, app). Flash at `0x0`. |
 | `parts/` | The separate images plus `flash_args` and the ELF (for debugging). |
 | `CHANGELOG.md` | What changed in this and earlier versions. |
+| `LICENSE` | MIT license. The firmware comes without any warranty. |
 
 ## What you need
 

@@ -131,7 +131,7 @@ jobs:
           sed -e "s|{{VERSION}}|${TAG}|g" \
               -e "s|{{REPOSITORY_URL}}|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}|g" \
               release/README.md > "dist/${name}/README.md"
-          cp CHANGELOG.md "dist/${name}/"
+          cp CHANGELOG.md LICENSE "dist/${name}/"
           (cd dist && zip -r "${name}.zip" "${name}")
 
       - name: Upload release assets
