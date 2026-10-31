@@ -17,7 +17,7 @@ idf_component_register(
         "status/StatusLed.cpp"
         ${SCALE_DRIVER_SRCS}
     INCLUDE_DIRS "."
-    REQUIRES bt esp_timer nvs_flash
+    REQUIRES bt esp_app_format esp_timer nvs_flash
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

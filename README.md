@@ -111,14 +111,65 @@ With `DOCKER=1`, flashing runs on the host via [esptool](https://github.com/espr
 (`uvx esptool`, or set `ESPTOOL=esptool`) and `monitor` uses `screen` (quit with Ctrl-A K),
 because Docker Desktop on macOS cannot pass USB devices into containers.
 
-### Prebuilt firmware
+## Flashing a release
 
-CI (`.github/workflows/ci.yml`) runs the host tests and builds the firmware on every push and
-pull request. Each run uploads an artifact with the binaries; `merged-binary.bin` flashes in one go:
+No ESP-IDF needed. Each [release](../../releases) has two assets:
+
+- `acaia-bridge-esp32s3-vX.Y.Z-merged.bin`: the complete image, flashed at address `0x0`.
+- `acaia-bridge-esp32s3-vX.Y.Z.zip`: the same image plus a flashing guide (README), the changelog
+  and the separate images with `flash_args`.
+
+Connect the board with a USB data cable. On boards with two USB-C ports use the native **USB**
+port, not **UART/COM**.
+
+**In the browser** (Chrome or Edge on desktop):
+
+1. Open [ESP Tool](https://espressif.github.io/esptool-js/), baudrate `460800`, **Connect**, pick the port.
+2. Flash Address `0x0`, choose the `-merged.bin` file, **Program**.
+3. Press **RESET** on the board when it is done.
+
+**With esptool** (`uvx esptool` runs it via [uv](https://docs.astral.sh/uv/); or `pip install esptool`):
 
 ```sh
-uvx esptool --chip esp32s3 -p /dev/cu.usbmodem1101 write-flash 0x0 merged-binary.bin
+uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-vX.Y.Z-merged.bin
 ```
+
+`PORT` is `/dev/cu.usbmodem*` on macOS, `/dev/ttyACM0` on Linux, `COMx` on Windows.
+
+If the board is not detected, enter download mode by hand: hold **BOOT**, press and release
+**RESET**, release **BOOT**, flash again, then press **RESET**.
+
+After flashing, the LED blinks red until the scale is connected (see [Status LED](#status-led)).
+Updating to a newer release works the same way and keeps the pairing with the machine: the
+adapter's Bluetooth identity comes from the chip, not from the firmware.
+
+CI (`.github/workflows/ci.yml`) also builds the firmware on every push and pull request and
+uploads the same files as a workflow artifact (`merged-binary.bin`), e.g. for testing a branch.
+
+## Releases and versioning
+
+Versions follow [Semantic Versioning](https://semver.org) and are derived from
+[Conventional Commits](https://www.conventionalcommits.org) by
+[release-please](https://github.com/googleapis/release-please):
+
+1. Every push to `main` (after tests and build pass) updates a release pull request that bumps
+   `version.txt` and adds the new entries to `CHANGELOG.md`.
+2. Merging that pull request raises the version; CI then tags `vX.Y.Z`, creates the GitHub release
+   and attaches the firmware built from that commit. The flashing guide inside the zip is
+   `release/README.md` (`{{VERSION}}` and `{{REPOSITORY_URL}}` are filled in by CI).
+
+| Commit | Version bump |
+|---|---|
+| `fix: …` | patch |
+| `feat: …` | minor |
+| `feat!: …` or a `BREAKING CHANGE:` footer | major (minor while the version is 0.x) |
+| `docs:`, `ci:`, `build:`, `refactor:`, `test:`, `chore:` | none, hidden from the changelog |
+
+ESP-IDF reads `version.txt` as the app version, so the firmware logs it at boot
+(`acaia-bridge 0.1.0`). Don't edit `version.txt` or `CHANGELOG.md` by hand; release-please owns them.
+
+The repository needs *Settings → Actions → General → Workflow permissions*: "Read and write
+permissions" and "Allow GitHub Actions to create and approve pull requests".
 
 ## Configuration (`make menuconfig` → Acaia Bridge)
 

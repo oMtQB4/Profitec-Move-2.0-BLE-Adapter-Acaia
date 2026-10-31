@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run on main: it may be creating a release.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # The container image (espressif/idf:v5.4.4) appears in both jobs; keep it in
 # sync with IDF_VERSION in the Makefile.
@@ -75,3 +76,66 @@ jobs:
             build/partition_table/partition-table.bin
             build/flash_args
             build/merged-binary.bin
+
+  # release-please keeps a release PR up to date from the Conventional Commits on
+  # main (version.txt + CHANGELOG.md). Merging that PR raises the version; the
+  # next run on main then tags vX.Y.Z and creates the GitHub release.
+  release:
+    name: Release
+    needs: [test, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Attaches the firmware built by the build job of this run (same commit as the
+  # tag), so the release ships exactly what CI tested.
+  publish:
+    name: Publish firmware
+    needs: [build, release]
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: acaia-bridge-esp32s3-${{ github.sha }}
+          path: firmware
+
+      # One zip with a flashing guide (release/README.md, placeholders filled in),
+      # the changelog, the merged image and the separate parts; the merged image
+      # is also attached on its own for the browser flasher.
+      - name: Package
+        run: |
+          name="acaia-bridge-esp32s3-${TAG}"
+          mkdir -p "dist/${name}/parts"
+          cp firmware/merged-binary.bin "dist/${name}-merged.bin"
+          cp firmware/merged-binary.bin "dist/${name}/${name}-merged.bin"
+          (cd firmware && cp -r bootloader partition_table acaia-bridge.bin acaia-bridge.elf flash_args "../dist/${name}/parts/")
+          sed -e "s|{{VERSION}}|${TAG}|g" \
+              -e "s|{{REPOSITORY_URL}}|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}|g" \
+              release/README.md > "dist/${name}/README.md"
+          cp CHANGELOG.md "dist/${name}/"
+          (cd dist && zip -r "${name}.zip" "${name}")
+
+      - name: Upload release assets
+        run: |
+          name="acaia-bridge-esp32s3-${TAG}"
+          gh release upload "$TAG" "dist/${name}.zip" "dist/${name}-merged.bin" \
+            --repo "$GITHUB_REPOSITORY" --clobber

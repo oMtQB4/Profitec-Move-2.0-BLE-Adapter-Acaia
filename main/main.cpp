@@ -2,6 +2,7 @@
 #include <string>
 
 #include <NimBLEDevice.h>
+#include <esp_app_desc.h>
 #include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
@@ -57,6 +58,7 @@ void initNvs()
 
 extern "C" void app_main()
 {
+    ESP_LOGI(TAG, "acaia-bridge %s", esp_app_get_description()->version);
     initNvs();
 
     const std::string name = advertisedName();
