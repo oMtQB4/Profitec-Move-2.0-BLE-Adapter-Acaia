@@ -9,23 +9,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(UNITY_DIR $ENV{IDF_PATH}/components/unity/unity/src)
 set(MAIN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../main)
 
+file(GLOB TEST_SRCS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
+file(GLOB SCALE_DRIVER_SRCS CONFIGURE_DEPENDS ${MAIN_DIR}/scale/drivers/*.cpp)
+
 add_executable(host_tests
-    test_main.cpp
-    test_acaia_protocol.cpp
-    test_eureka_precisa.cpp
-    test_driver_registry.cpp
-    test_advertising_data.cpp
-    test_led_pattern.cpp
-    test_device_info.cpp
-    test_software_tare.cpp
+    ${TEST_SRCS}
+    ${SCALE_DRIVER_SRCS}
     ${MAIN_DIR}/acaia/AcaiaProtocol.cpp
     ${MAIN_DIR}/acaia/DeviceInfo.cpp
     ${MAIN_DIR}/scale/AdvertisingData.cpp
+    ${MAIN_DIR}/scale/Driver.cpp
     ${MAIN_DIR}/status/LedPattern.cpp
-    ${MAIN_DIR}/scale/drivers/EurekaPrecisa.cpp
     ${UNITY_DIR}/unity.c
 )
-target_include_directories(host_tests PRIVATE ${MAIN_DIR} ${UNITY_DIR})
+target_include_directories(host_tests PRIVATE ${MAIN_DIR} ${UNITY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(host_tests PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()

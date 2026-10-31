@@ -44,10 +44,44 @@ Service, toggle the phone's Bluetooth once so iOS refreshes its cached services.
 
 ## Supported scales
 
-| Scale | Advertised name |
-|---|---|
-| Eureka Precisa | `CFS-9002` |
-| Solo Barista (same protocol) | `LSJ-001` |
+Only the Eureka Precisa has been tested with a real device. All other drivers are
+**integrated but not tested with a real device**: they implement the protocols documented by the
+open-source projects listed under [Protocol references](#protocol-references) and pass unit tests
+with the frames from those sources, but nobody has run them against the actual scale yet. Reports
+(serial log with `BRIDGE_LOG_SCAN_RESULTS` on) are welcome.
+
+"Move app" marks scales Profitec lists as compatible with the Move 2.0 in app mode.
+
+| Scale | Advertised name / match | Move app | Tare | Timer | Protocol confidence | Status |
+|---|---|---|---|---|---|---|
+| Eureka Precisa | `CFS-9002` | yes | yes | yes | 2 sources | **tested on hardware** |
+| Solo Barista | `LSJ-001` | yes | yes | yes | 2 sources (same as Eureka) | integrated, not tested |
+| Decent Scale (+ ButtsHaus clones) | `Decent Scale…`, `ButtsHaus Scale…` | yes | yes | yes | 2 sources | integrated, not tested |
+| EspressiScale (DIY) | `EspressiScale` | – | yes | yes | 2 sources + firmware | integrated, not tested |
+| DiFluid Microbalance / Microbalance Ti | service `00EE` / `00DD`, or name `Microbalance…` | yes | yes | start/stop | 3 sources incl. vendor doc | integrated, not tested |
+| Felicita Arc / Parallel / Incline | contains `felicita` | yes | yes | yes | 2 sources | integrated, not tested |
+| Hiroia Jimmy | `HIROIA…` | yes | yes | – | 2 sources | integrated, not tested |
+| Skale II (Atomax) | `Skale…` | yes | yes | yes | 2 sources | integrated, not tested |
+| Varia AKU / AKU Mini | contains `Varia AKU` / `AKU MINI` | yes | yes | yes | 2 sources | integrated, not tested |
+| Goat Story Gina | service `91341521-…` | yes | software | – | 1 source | integrated, not tested |
+| Bookoo Themis Mini / Ultra | contains `BOOKOO_SC` | – | yes | yes | 4 sources incl. vendor doc | integrated, not tested |
+| Timemore Black Mirror | contains `Timemore Scale` | – | yes | yes | 1 source | integrated, not tested |
+| Timemore Basic 3 | `Basic3`, `Basic 3`, `Timemore…Basic` | – | yes | yes | 1 source | integrated, not tested |
+| Timemore Dot | `TES017`, `Timemore…Dot` | – | yes | yes | 2 sources (commands differ) | integrated, not tested |
+| Smartchef | contains `smartchef` | – | software | – | 2 sources | integrated, not tested |
+| Blackcoffee.io | contains `blackcoffee` / `my_scale` | – | software | – | 1 source | integrated, not tested |
+| Futula Kitchen Scale 3 (LEFU CK811) | contains `LFSmart Scale`, `LEFU-CK811…` | – | yes | – | 3 sources | integrated, not tested |
+| Mantabrew WeighMaster 2.0 | contains `WeighMaster` / `Mantabrew` | – | yes | yes | 1 source | integrated, not tested |
+| WeighMyBru (DIY) | `WeighMyBru…` | – | yes | yes | 2 sources + firmware | integrated, not tested |
+| DIY mpy-coffee / coffee-scale (beeb) | `mpy-coffee` / `coffee-scale` | – | software | – | 2 sources + firmware | integrated, not tested |
+
+"software" tare: the scale accepts no tare command; the adapter zeroes the weight itself when the
+machine connects (`BRIDGE_TARE_ON_CLIENT_CONNECT`), which is all the Move 2.0 needs.
+
+**Not supported**
+- **Ikape scale, Brewista X** (on the Move app list): no public BLE protocol found. A Bluetooth
+  capture (Android HCI snoop log) with the vendor app would be needed.
+- **Acaia scales** need no adapter: the Move 2.0 pairs with them directly.
 
 ## Build
 
@@ -134,28 +168,45 @@ main/
 
 ## Adding a scale
 
-1. Create `main/scale/drivers/MyScale.{hpp,cpp}`:
+1. Create `main/scale/drivers/MyScale.{hpp,cpp}`. Most drivers decode without state and derive
+   from `DecodingDriver`, which supplies `name()` and `onNotify()`:
 
    ```cpp
-   class MyScale : public scale::Driver {
+   class MyScale : public scale::DecodingDriver<MyScale> {
    public:
        static constexpr const char* kName = "My Scale";
-       static bool matches(const scale::Advertisement& adv) { return adv.name.starts_with("MYSCALE"); }
+       static bool matches(const scale::Advertisement& adv);              // name and/or payload (service UUIDs)
+       static std::optional<scale::Reading> decode(std::span<const uint8_t> data); // 0.1 g
 
-       std::string_view name() const override { return kName; }
-       const scale::GattProfile& profile() const override;          // service / notify / write UUIDs
-       void onNotify(std::span<const uint8_t> data) override;       // decode, then publish(Reading{...})
-       bool send(scale::Command cmd, scale::Transport& t) override; // tare / timer
-       // optional: onConnected() for a handshake, onTick() for heartbeats
+       const scale::GattProfile& profile() const override;          // service / notify / write (nullptr = no commands)
+       bool send(scale::Command cmd, scale::Transport& t) override; // tare / timer; false if unsupported
+
+   protected:
+       void onConnected(scale::Transport& t) override;              // optional handshake
+       void onTick(scale::Transport& t, uint32_t nowMs) override;   // optional heartbeat
    };
    ```
 
-2. Register it in `main/scale/drivers/Drivers.cpp`: `registry.add<MyScale>();`
-3. Add the `.cpp` to `main/CMakeLists.txt` (and `test/CMakeLists.txt` with a test).
+   Helpers: `schedule(delayMs, bytes)` and `sendTwice(transport, bytes)` for timed writes,
+   `transport.read(uuid)` for reading a characteristic, `scale/Bytes.hpp` for byte order and
+   checksums, `scale/NameMatch.hpp` for case-insensitive names, `advertisesService16/128()` in
+   `scale/AdvertisingData.hpp`, `fromCentigrams()`/`fromGrams()` for other resolutions.
+   Drivers must not include ESP-IDF headers, so they stay testable on the host.
+2. Register it in `main/scale/drivers/Drivers.cpp` (`registry.add<MyScale>();`); order matters,
+   the first matching driver wins.
+3. Add tests with frames from the protocol source (see `test/test_drivers_*.cpp`) and a sample
+   name in `test/test_driver_registry.cpp`. Driver files are globbed: run `make fullclean build`
+   (or `idf.py reconfigure`) once after adding a file.
 
 ## Protocol references
 
-- Eureka Precisa: [Beanconqueror `eurekaPrecisaScale.ts`](https://github.com/graphefruit/Beanconqueror/blob/master/src/classes/devices/eurekaPrecisaScale.ts),
-  [Decent de1app `bluetooth.tcl`](https://github.com/decentespresso/de1app/blob/main/de1plus/bluetooth.tcl)
+The drivers re-implement byte formats documented by these projects; no code was copied.
+
+- [Beanconqueror](https://github.com/graphefruit/Beanconqueror) (`src/classes/devices/`): most scales
+- [Decent de1app](https://github.com/decentespresso/de1app) (`de1plus/bluetooth.tcl`, `machine.tcl`, `binary.tcl`)
+- Vendor documentation: [Bookoo](https://github.com/BooKooCode/OpenSource), DiFluid (`difluid-sdk-demo`, `protocolMicrobalance.md`)
+- Firmware / apps: [EspressiScale](https://github.com/Whauu/EspressiScale), [weighmybru2](https://github.com/031devstudios/weighmybru2),
+  [beeb/coffee-scale-app](https://github.com/beeb/coffee-scale-app), [FutulaCoffeeScale](https://github.com/wdrs/FutulaCoffeeScale),
+  [Pourista](https://github.com/DrSkyFly/Pourista), [talla](https://github.com/talla-speciality/talla) (Goat Story Gina)
 - Acaia: [AcaiaArduinoBLE](https://github.com/tatemazer/AcaiaArduinoBLE), [pyacaia](https://github.com/lucapinello/pyacaia),
   [aioacaia](https://github.com/zweckj/aioacaia) (real Lunar 2021 GATT dump and frame captures)

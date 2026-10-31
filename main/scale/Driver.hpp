@@ -1,8 +1,15 @@
 #pragma once
 
+#include <array>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
+#include <vector>
+
+#include "common/Packet.hpp"
 
 namespace scale {
 
@@ -10,6 +17,22 @@ namespace scale {
 struct Reading {
     int32_t weightDg; // 0.1 g
 };
+
+/** Rounds finer scale resolutions to the 0.1 g the bridge relays. */
+constexpr int32_t fromCentigrams(int32_t cg)
+{
+    return (cg >= 0 ? cg + 5 : cg - 5) / 10;
+}
+
+constexpr int32_t fromMilligrams(int32_t mg)
+{
+    return (mg >= 0 ? mg + 50 : mg - 50) / 100;
+}
+
+inline int32_t fromGrams(float grams)
+{
+    return static_cast<int32_t>(std::lround(grams * 10.0f));
+}
 
 /** Scale-independent commands the bridge can forward. */
 enum class Command {
@@ -19,24 +42,33 @@ enum class Command {
     TimerReset,
 };
 
-/** What a scan saw. Grows when a driver needs more than the name to match. */
+/** What a scan saw. */
 struct Advertisement {
     std::string_view name;
+    std::span<const uint8_t> payload; // raw advertising data + scan response
+};
+
+enum class WriteMode {
+    Auto, // pick from the characteristic's properties, preferring write without response
+    WithResponse,
+    WithoutResponse,
 };
 
 /** GATT layout a driver needs. UUID strings in NimBLEUUID format ("fff0" or 128-bit). */
 struct GattProfile {
     const char* service;
     const char* notify;
-    const char* write;
-    bool writeWithResponse;
+    const char* write; // nullptr for scales that take no commands
+    WriteMode writeMode = WriteMode::Auto;
 };
 
-/** Byte sink towards the connected scale; implemented by the BLE client. */
+/** Link to the connected scale; implemented by the BLE client. */
 class Transport {
 public:
     virtual ~Transport() = default;
     virtual bool write(std::span<const uint8_t> data) = 0;
+    /** Reads a characteristic of the profile's service. */
+    virtual std::optional<std::vector<uint8_t>> read(const char* characteristicUuid) = 0;
 };
 
 /** Observer for everything a scale reports. */
@@ -64,8 +96,15 @@ public:
     virtual std::string_view name() const = 0;
     virtual const GattProfile& profile() const = 0;
 
-    /** Called once notifications are enabled; send any handshake here. */
-    virtual void onConnected(Transport& transport) { (void)transport; }
+    /** Called by the client once notifications are enabled. */
+    void connected(Transport& transport, uint32_t nowMs)
+    {
+        nowMs_ = nowMs;
+        onConnected(transport);
+    }
+
+    /** Called by the client every ~50 ms: sends due scheduled writes, then onTick(). */
+    void tick(Transport& transport, uint32_t nowMs);
 
     /** Called for every notification on the profile's notify characteristic. */
     virtual void onNotify(std::span<const uint8_t> data) = 0;
@@ -73,12 +112,19 @@ public:
     /** Returns false if the scale does not support the command. */
     virtual bool send(Command command, Transport& transport) = 0;
 
-    /** Called periodically (~100 ms) while connected, e.g. for heartbeats. */
-    virtual void onTick(Transport& transport) { (void)transport; }
-
     void setListener(Listener* listener) { listener_ = listener; }
 
 protected:
+    /** Handshake after subscribing. Use schedule() for delayed steps. */
+    virtual void onConnected(Transport& transport) { (void)transport; }
+
+    /** Periodic work such as heartbeats. */
+    virtual void onTick(Transport& transport, uint32_t nowMs)
+    {
+        (void)transport;
+        (void)nowMs;
+    }
+
     void publish(const Reading& reading)
     {
         if (listener_ != nullptr) {
@@ -86,8 +132,45 @@ protected:
         }
     }
 
+    /** Queues a write `delayMs` from now. Returns false if the queue is full. */
+    bool schedule(uint32_t delayMs, std::span<const uint8_t> bytes);
+
+    /** Writes now and once more after `gapMs`; some scales drop single commands. */
+    bool sendTwice(Transport& transport, std::span<const uint8_t> bytes, uint32_t gapMs = 200)
+    {
+        const bool sent = transport.write(bytes);
+        schedule(gapMs, bytes);
+        return sent;
+    }
+
 private:
+    struct Pending {
+        uint32_t dueMs;
+        Packet<24> bytes;
+    };
+
     Listener* listener_ = nullptr;
+    uint32_t nowMs_ = 0;
+    std::array<Pending, 8> pending_{};
+    std::size_t pendingCount_ = 0;
+};
+
+/**
+ * Base for drivers whose notifications decode without state: `Self` provides
+ * `static constexpr const char* kName` and
+ * `static std::optional<Reading> decode(std::span<const uint8_t>)`.
+ */
+template <class Self>
+class DecodingDriver : public Driver {
+public:
+    std::string_view name() const override { return Self::kName; }
+
+    void onNotify(std::span<const uint8_t> data) override
+    {
+        if (auto reading = Self::decode(data)) {
+            publish(*reading);
+        }
+    }
 };
 
 } // namespace scale

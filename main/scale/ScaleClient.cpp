@@ -16,7 +16,7 @@ namespace {
 
 constexpr const char* TAG = "scale";
 constexpr uint32_t kConnectTimeoutMs = 5000;
-constexpr uint32_t kTickPeriodMs = 100;
+constexpr uint32_t kTickPeriodMs = 50;
 constexpr UBaseType_t kNotificationQueueLength = 16;
 
 uint32_t nowMs()
@@ -77,7 +77,7 @@ void ScaleClient::poll()
         }
         if (nowMs() - lastTickMs_ >= kTickPeriodMs) {
             lastTickMs_ = nowMs();
-            driver_->onTick(*this);
+            driver_->tick(*this, lastTickMs_);
         }
         break;
     }
@@ -96,7 +96,30 @@ bool ScaleClient::write(std::span<const uint8_t> data)
     if (writeChar_ == nullptr || !client_->isConnected()) {
         return false;
     }
-    return writeChar_->writeValue(data.data(), data.size(), driver_->profile().writeWithResponse);
+    bool withResponse = false;
+    switch (driver_->profile().writeMode) {
+    case WriteMode::WithResponse:
+        withResponse = true;
+        break;
+    case WriteMode::WithoutResponse:
+        withResponse = false;
+        break;
+    case WriteMode::Auto:
+        withResponse = !writeChar_->canWriteNoResponse();
+        break;
+    }
+    return writeChar_->writeValue(data.data(), data.size(), withResponse);
+}
+
+std::optional<std::vector<uint8_t>> ScaleClient::read(const char* characteristicUuid)
+{
+    NimBLERemoteCharacteristic* characteristic =
+        service_ != nullptr ? service_->getCharacteristic(characteristicUuid) : nullptr;
+    if (characteristic == nullptr || !characteristic->canRead()) {
+        return std::nullopt;
+    }
+    const NimBLEAttValue value = characteristic->readValue();
+    return std::vector<uint8_t>(value.begin(), value.end());
 }
 
 void ScaleClient::onResult(const NimBLEAdvertisedDevice* device)
@@ -104,12 +127,13 @@ void ScaleClient::onResult(const NimBLEAdvertisedDevice* device)
     if (candidateFound_.load()) {
         return;
     }
+    const auto& rawPayload = device->getPayload();
+    const std::span<const uint8_t> payload{rawPayload.data(), rawPayload.size()};
     std::string name = device->getName();
     if (name.empty()) {
-        const auto& payload = device->getPayload();
-        name = findLocalName({payload.data(), payload.size()});
+        name = findLocalName(payload);
     }
-    const DriverRegistry::Entry* entry = name.empty() ? nullptr : registry_.find(Advertisement{name});
+    const DriverRegistry::Entry* entry = registry_.find(Advertisement{name, payload});
 #if CONFIG_BRIDGE_LOG_SCAN_RESULTS
     // Without duplicate filtering every advertisement lands here; log each named device once.
     static std::vector<uint64_t> logged;
@@ -174,7 +198,7 @@ void ScaleClient::connect()
 
     state_ = State::Connected;
     lastTickMs_ = nowMs();
-    driver_->onConnected(*this);
+    driver_->connected(*this, lastTickMs_);
     if (listener_ != nullptr) {
         listener_->onScaleConnected(driver_->name());
     }
@@ -183,16 +207,22 @@ void ScaleClient::connect()
 bool ScaleClient::subscribe()
 {
     const GattProfile& profile = driver_->profile();
-    NimBLERemoteService* service = client_->getService(profile.service);
-    if (service == nullptr) {
+    service_ = client_->getService(profile.service);
+    if (service_ == nullptr) {
         ESP_LOGW(TAG, "service %s not found", profile.service);
         return false;
     }
-    NimBLERemoteCharacteristic* notifyChar = service->getCharacteristic(profile.notify);
-    writeChar_ = service->getCharacteristic(profile.write);
-    if (notifyChar == nullptr || writeChar_ == nullptr || !notifyChar->canNotify()) {
-        ESP_LOGW(TAG, "characteristics %s/%s missing", profile.notify, profile.write);
+    NimBLERemoteCharacteristic* notifyChar = service_->getCharacteristic(profile.notify);
+    if (notifyChar == nullptr || !notifyChar->canNotify()) {
+        ESP_LOGW(TAG, "notify characteristic %s missing", profile.notify);
         return false;
+    }
+    if (profile.write != nullptr) {
+        writeChar_ = service_->getCharacteristic(profile.write);
+        if (writeChar_ == nullptr) {
+            ESP_LOGW(TAG, "write characteristic %s missing", profile.write);
+            return false;
+        }
     }
 
     auto onNotify = [this](NimBLERemoteCharacteristic*, uint8_t* data, size_t length, bool) {
@@ -214,6 +244,7 @@ void ScaleClient::handleDisconnect()
 {
     const bool wasConnected = state_ == State::Connected;
     driver_.reset();
+    service_ = nullptr;
     writeChar_ = nullptr;
     xQueueReset(notifications_);
     if (wasConnected && listener_ != nullptr) {

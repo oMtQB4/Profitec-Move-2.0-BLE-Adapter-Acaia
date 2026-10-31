@@ -37,6 +37,7 @@ public:
     bool send(Command command);
 
     bool write(std::span<const uint8_t> data) override;
+    std::optional<std::vector<uint8_t>> read(const char* characteristicUuid) override;
 
 private:
     enum class State { Scanning, Connecting, Connected };
@@ -62,6 +63,7 @@ private:
     State state_ = State::Scanning;
 
     NimBLEClient* client_ = nullptr;
+    NimBLERemoteService* service_ = nullptr;
     NimBLERemoteCharacteristic* writeChar_ = nullptr;
     std::unique_ptr<Driver> driver_;
     uint32_t lastTickMs_ = 0;

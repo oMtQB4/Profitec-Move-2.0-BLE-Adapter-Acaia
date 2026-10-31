@@ -4,7 +4,7 @@ namespace scale {
 
 namespace {
 
-constexpr GattProfile kProfile{"fff0", "fff1", "fff2", false};
+constexpr GattProfile kProfile{"fff0", "fff1", "fff2", WriteMode::WithoutResponse};
 
 constexpr std::string_view kAdvertisedNames[] = {"CFS-9002", "LSJ-001"};
 
@@ -69,13 +69,6 @@ const GattProfile& EurekaPrecisa::profile() const
 void EurekaPrecisa::onConnected(Transport& transport)
 {
     transport.write(encodeUnitGrams());
-}
-
-void EurekaPrecisa::onNotify(std::span<const uint8_t> data)
-{
-    if (auto reading = decode(data)) {
-        publish(*reading);
-    }
 }
 
 bool EurekaPrecisa::send(Command command, Transport& transport)

@@ -20,7 +20,7 @@
 
 namespace scale {
 
-class EurekaPrecisa : public Driver {
+class EurekaPrecisa : public DecodingDriver<EurekaPrecisa> {
 public:
     static constexpr const char* kName = "Eureka Precisa";
     static bool matches(const Advertisement& advertisement);
@@ -30,11 +30,11 @@ public:
     static std::optional<CommandBytes> encode(Command command);
     static CommandBytes encodeUnitGrams();
 
-    std::string_view name() const override { return kName; }
     const GattProfile& profile() const override;
-    void onConnected(Transport& transport) override;
-    void onNotify(std::span<const uint8_t> data) override;
     bool send(Command command, Transport& transport) override;
+
+protected:
+    void onConnected(Transport& transport) override;
 };
 
 } // namespace scale
