@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml/badge.svg)](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml)
 
+
 ESP32-S3 firmware that makes any supported BLE coffee scale look like an Acaia Lunar.
 
 The Profitec Move 2.0 only does brew-by-weight with Acaia scales. This adapter connects to
