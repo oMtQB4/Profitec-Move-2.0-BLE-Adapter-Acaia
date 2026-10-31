@@ -1,0 +1,63 @@
+menu "Acaia Bridge"
+
+    config BRIDGE_NAME_PREFIX
+        string "Advertised name prefix"
+        default "LUNAR-"
+        help
+            The emulated scale advertises as this prefix plus the last three
+            bytes of the Bluetooth MAC. Acaia clients match on "LUNAR".
+
+    config BRIDGE_ADVERTISE_WITHOUT_SCALE
+        bool "Advertise even when no real scale is connected"
+        default n
+        help
+            Useful to test the Acaia side with the coffee machine before a
+            real scale is available. Otherwise the emulated scale is only
+            visible while a real scale is connected.
+
+    config BRIDGE_TARE_ON_CLIENT_CONNECT
+        bool "Zero the weight when the coffee machine connects"
+        default y
+        help
+            The Profitec Move 2.0 connects when a shot starts and sends no tare
+            command. With this option the weight it receives starts at 0, like
+            a Lunar in an auto-tare mode. The adapter zeroes instantly with a
+            software offset and also tares the real scale; the offset is
+            dropped once the scale's own tare shows in its readings.
+
+    config BRIDGE_STATUS_LED
+        bool "Show status on an addressable RGB LED (WS2812)"
+        default y
+        help
+            Red blinking: searching for the scale. Yellow: scale connected,
+            waiting for the coffee machine. Blue: machine connected.
+
+    config BRIDGE_STATUS_LED_GPIO
+        int "Status LED GPIO"
+        depends on BRIDGE_STATUS_LED
+        range 0 48
+        default 48
+        help
+            ESP32-S3-DevKitC-1 v1.0 uses GPIO48, v1.1 uses GPIO38.
+
+    config BRIDGE_STATUS_LED_BRIGHTNESS
+        int "Status LED brightness (1-255)"
+        depends on BRIDGE_STATUS_LED
+        range 1 255
+        default 24
+
+    config BRIDGE_LOG_SCAN_RESULTS
+        bool "Log every BLE device seen while scanning for scales"
+        default n
+        help
+            Logs name, address, RSSI and whether a driver matched. Useful to
+            find the advertised name of a scale that should get a driver.
+
+    config BRIDGE_LOG_ACAIA_FRAMES
+        bool "Hex-log Acaia frames exchanged with the coffee machine"
+        default y
+        help
+            Logs every write from the machine and every non-weight frame
+            sent back. Weight notifications are not logged.
+
+endmenu

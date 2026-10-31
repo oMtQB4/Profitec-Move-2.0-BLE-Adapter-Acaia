@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The container image (espressif/idf:v5.4.4) appears in both jobs; keep it in
+# sync with IDF_VERSION in the Makefile.
+jobs:
+  test:
+    name: Host unit tests
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.4
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build tests
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          cmake -S test -B build-test -G Ninja
+          cmake --build build-test
+
+      - name: Run tests
+        run: ./build-test/host_tests
+
+  build:
+    name: Firmware (ESP32-S3)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.4
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache managed components
+        uses: actions/cache@v4
+        with:
+          path: managed_components
+          key: components-${{ hashFiles('dependencies.lock') }}
+
+      - name: Build
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          idf.py build
+          idf.py merge-bin
+
+      - name: Size report
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          {
+            echo '```'
+            idf.py size
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: acaia-bridge-esp32s3-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            build/acaia-bridge.bin
+            build/acaia-bridge.elf
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/flash_args
+            build/merged-binary.bin
