@@ -17,6 +17,9 @@ add_executable(host_tests
     ${SCALE_DRIVER_SRCS}
     ${MAIN_DIR}/acaia/AcaiaProtocol.cpp
     ${MAIN_DIR}/acaia/DeviceInfo.cpp
+    ${MAIN_DIR}/ota/AppImage.cpp
+    ${MAIN_DIR}/ota/OtaProtocol.cpp
+    ${MAIN_DIR}/ota/OtaSession.cpp
     ${MAIN_DIR}/scale/AdvertisingData.cpp
     ${MAIN_DIR}/scale/Driver.cpp
     ${MAIN_DIR}/status/LedPattern.cpp

@@ -32,6 +32,11 @@ public:
     void setCommandSink(CommandSink* sink) { sink_ = sink; }
     void setBatteryPercent(uint8_t percent) { batteryPct_ = percent; }
 
+    /**
+     * Adds the Acaia and Device Information services and the advertising data.
+     * The caller starts the GATT server after adding its own services, so the
+     * handles of these two stay the same.
+     */
     void begin();
     void startAdvertising();
     void stopAdvertising();

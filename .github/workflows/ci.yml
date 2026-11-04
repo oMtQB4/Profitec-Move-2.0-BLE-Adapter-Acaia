@@ -33,6 +33,16 @@ jobs:
       - name: Run tests
         run: ./build-test/host_tests
 
+  web-test:
+    name: Updater tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test web/updater/protocol.test.mjs
+
   build:
     name: Firmware (ESP32-S3)
     runs-on: ubuntu-latest
@@ -55,6 +65,12 @@ jobs:
           idf.py build
           idf.py merge-bin
 
+      # The two images users need, named for what they're for.
+      - name: Name images
+        run: |
+          cp build/merged-binary.bin build/acaia-bridge-esp32s3-to_flash_via_usb.bin
+          cp build/acaia-bridge.bin build/acaia-bridge-esp32s3-ota_update.bin
+
       - name: Size report
         run: |
           . "$IDF_PATH/export.sh" > /dev/null
@@ -70,19 +86,21 @@ jobs:
           name: acaia-bridge-esp32s3-${{ github.sha }}
           if-no-files-found: error
           path: |
+            build/acaia-bridge-esp32s3-to_flash_via_usb.bin
+            build/acaia-bridge-esp32s3-ota_update.bin
             build/acaia-bridge.bin
             build/acaia-bridge.elf
             build/bootloader/bootloader.bin
             build/partition_table/partition-table.bin
+            build/ota_data_initial.bin
             build/flash_args
-            build/merged-binary.bin
 
   # release-please keeps a release PR up to date from the Conventional Commits on
   # main (version.txt + CHANGELOG.md). Merging that PR raises the version; the
   # next run on main then tags vX.Y.Z and creates the GitHub release.
   release:
     name: Release
-    needs: [test, build]
+    needs: [test, web-test, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -118,16 +136,19 @@ jobs:
           name: acaia-bridge-esp32s3-${{ github.sha }}
           path: firmware
 
-      # One zip with a flashing guide (release/README.md, placeholders filled in),
-      # the changelog, the merged image and the separate parts; the merged image
-      # is also attached on its own for the browser flasher.
+      # Attached on their own: the complete image for USB flashing and the app
+      # image for updates over Bluetooth. Plus one zip with both, a flashing
+      # guide (release/README.md, placeholders filled in), the changelog and
+      # the separate parts.
       - name: Package
         run: |
           name="acaia-bridge-esp32s3-${TAG}"
           mkdir -p "dist/${name}/parts"
-          cp firmware/merged-binary.bin "dist/${name}-merged.bin"
-          cp firmware/merged-binary.bin "dist/${name}/${name}-merged.bin"
-          (cd firmware && cp -r bootloader partition_table acaia-bridge.bin acaia-bridge.elf flash_args "../dist/${name}/parts/")
+          for kind in to_flash_via_usb ota_update; do
+            cp "firmware/acaia-bridge-esp32s3-${kind}.bin" "dist/${name}-${kind}.bin"
+            cp "firmware/acaia-bridge-esp32s3-${kind}.bin" "dist/${name}/${name}-${kind}.bin"
+          done
+          (cd firmware && cp -r bootloader partition_table acaia-bridge.bin acaia-bridge.elf ota_data_initial.bin flash_args "../dist/${name}/parts/")
           sed -e "s|{{VERSION}}|${TAG}|g" \
               -e "s|{{REPOSITORY_URL}}|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}|g" \
               release/README.md > "dist/${name}/README.md"
@@ -137,5 +158,52 @@ jobs:
       - name: Upload release assets
         run: |
           name="acaia-bridge-esp32s3-${TAG}"
-          gh release upload "$TAG" "dist/${name}.zip" "dist/${name}-merged.bin" \
+          gh release upload "$TAG" "dist/${name}-to_flash_via_usb.bin" "dist/${name}-ota_update.bin" "dist/${name}.zip" \
             --repo "$GITHUB_REPOSITORY" --clobber
+
+  # The Bluetooth updater on GitHub Pages, with the latest release's -ota_update.bin
+  # next to it (browsers can't download release assets from another origin).
+  # Runs after every push to main, so page changes and new releases go live.
+  # Needs Settings -> Pages -> Source: "GitHub Actions".
+  pages:
+    name: Deploy updater
+    needs: [release, publish]
+    if: ${{ !cancelled() && needs.release.result == 'success' && needs.publish.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p site/firmware
+          cp web/updater/index.html web/updater/updater.js web/updater/protocol.js site/
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          file="acaia-bridge-esp32s3-${tag}-ota_update.bin"
+          if [ -n "$tag" ] && gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+                --pattern "$file" --dir site/firmware; then
+            date=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt[:10]')
+            jq -n --arg version "$tag" --arg file "$file" --arg date "$date" \
+                  --arg sha256 "$(sha256sum "site/firmware/$file" | cut -d' ' -f1)" \
+                  --argjson size "$(stat -c %s "site/firmware/$file")" \
+                  '{version: $version, file: $file, date: $date, size: $size, sha256: $sha256}' \
+                  > site/firmware/manifest.json
+            cat site/firmware/manifest.json
+          else
+            echo "No release with an OTA image yet: the page offers file upload only."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

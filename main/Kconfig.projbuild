@@ -25,6 +25,18 @@ menu "Acaia Bridge"
             software offset and also tares the real scale; the offset is
             dropped once the scale's own tare shows in its readings.
 
+    config BRIDGE_AUTO_TARE
+        bool "Tare when a cup is placed on the scale"
+        default y
+        help
+            The Move 2.0 connects only a few seconds after the shot has started,
+            so taring at that moment comes too late. Like a Lunar in its
+            espresso modes, the adapter tares the scale as soon as a cup is put
+            down (at least 20 g, placed within 2 s, then steady) while the
+            machine is not connected. The same happens when the cup is taken
+            off. Slow changes such as pouring don't trigger it. When the machine
+            then connects with less than 20 g on the scale, the zero is kept.
+
     config BRIDGE_STATUS_LED
         bool "Show status on an addressable RGB LED (WS2812)"
         default y
@@ -59,5 +71,41 @@ menu "Acaia Bridge"
         help
             Logs every write from the machine and every non-weight frame
             sent back. Weight notifications are not logged.
+
+    menu "Firmware update over Bluetooth"
+
+        config BRIDGE_UPDATE_BUTTON
+            bool "Enter update mode by holding a button for 3 s"
+            default y
+            help
+                Holding the button for 3 s while the bridge runs restarts the
+                adapter in update mode (status LED purple). Holding it again
+                in update mode returns to the bridge.
+
+        config BRIDGE_UPDATE_BUTTON_GPIO
+            int "Update button GPIO"
+            depends on BRIDGE_UPDATE_BUTTON
+            range 0 48
+            default 0
+            help
+                GPIO0 is the BOOT button on ESP32-S3 DevKit boards (active low,
+                internal pull-up). It only acts as a strapping pin while the
+                chip resets, so holding it later is safe.
+
+        config BRIDGE_UPDATE_POWER_CYCLES
+            int "Enter update mode after this many short power-ons in a row (0 = off)"
+            range 0 10
+            default 3
+            help
+                For adapters in a case without access to the button: power the
+                adapter on this many times in a row, each time cutting power
+                again within 10 s. The last power-on starts update mode.
+
+        config BRIDGE_UPDATE_MODE_TIMEOUT_MIN
+            int "Leave update mode after this many minutes without an update"
+            range 1 60
+            default 5
+
+    endmenu
 
 endmenu

@@ -10,6 +10,13 @@ idf_component_register(
         "acaia/AcaiaPeripheral.cpp"
         "acaia/DeviceInfo.cpp"
         "bridge/Bridge.cpp"
+        "ota/AppImage.cpp"
+        "ota/AppValidity.cpp"
+        "ota/EspFlashTarget.cpp"
+        "ota/OtaProtocol.cpp"
+        "ota/OtaService.cpp"
+        "ota/OtaSession.cpp"
+        "ota/UpdateMode.cpp"
         "scale/AdvertisingData.cpp"
         "scale/Driver.cpp"
         "scale/ScaleClient.cpp"
@@ -17,7 +24,7 @@ idf_component_register(
         "status/StatusLed.cpp"
         ${SCALE_DRIVER_SRCS}
     INCLUDE_DIRS "."
-    REQUIRES bt esp_app_format esp_timer nvs_flash
+    REQUIRES app_update bt esp_app_format esp_driver_gpio esp_timer nvs_flash
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

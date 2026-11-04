@@ -49,7 +49,7 @@ void testHandsOverWhenScaleTareShowsUp()
     // (here 0.3 g), since the moment the scale zeroed itself is unknown.
     TEST_ASSERT_EQUAL_INT32(12, tare.apply(15, &handedOver));
     TEST_ASSERT_TRUE(handedOver);
-    TEST_ASSERT_FALSE(tare.awaitingScaleTare());
+    TEST_ASSERT_TRUE(tare.scaleTared());
     TEST_ASSERT_EQUAL_INT32(357, tare.apply(360, &handedOver));
     TEST_ASSERT_FALSE(handedOver);
 }
@@ -78,6 +78,39 @@ void testKeepsOffsetIfScaleNeverTares()
     }
     TEST_ASSERT_EQUAL_INT32(360, tare.apply(1860));
     TEST_ASSERT_TRUE(tare.awaitingScaleTare());
+    TEST_ASSERT_FALSE(tare.scaleTared());
+}
+
+void testRepeatedScaleTareKeepsWeightContinuous()
+{
+    SoftwareTare tare;
+    tare.apply(1500); // cup
+    tare.zeroAndAwaitScaleTare();
+    tare.apply(0); // first tare command took effect
+    TEST_ASSERT_TRUE(tare.scaleTared());
+    TEST_ASSERT_EQUAL_INT32(80, tare.apply(80)); // 8 g of espresso
+
+    // A resent tare command arrives late and zeroes the scale again.
+    bool handedOver = false;
+    TEST_ASSERT_EQUAL_INT32(80, tare.apply(2, &handedOver));
+    TEST_ASSERT_TRUE(handedOver);
+    TEST_ASSERT_EQUAL_INT32(360, tare.apply(282));
+}
+
+void testFlowingEspressoIsNoRepeatedTare()
+{
+    SoftwareTare tare;
+    tare.apply(1500);
+    tare.zeroAndAwaitScaleTare();
+    tare.apply(0);
+    bool handedOver = false;
+    for (int32_t raw = 0; raw <= 360; raw += 3) {
+        TEST_ASSERT_EQUAL_INT32(raw, tare.apply(raw, &handedOver));
+        TEST_ASSERT_FALSE(handedOver);
+    }
+    // Noise of a few tenths, small drops: still no tare.
+    TEST_ASSERT_EQUAL_INT32(355, tare.apply(355, &handedOver));
+    TEST_ASSERT_FALSE(handedOver);
 }
 
 void testNothingToAwaitWhenAlreadyZero()
@@ -99,5 +132,7 @@ void runSoftwareTareTests()
     RUN_TEST(testHandsOverWhenScaleTareShowsUp);
     RUN_TEST(testLateScaleTareKeepsWeightContinuous);
     RUN_TEST(testKeepsOffsetIfScaleNeverTares);
+    RUN_TEST(testRepeatedScaleTareKeepsWeightContinuous);
+    RUN_TEST(testFlowingEspressoIsNoRepeatedTare);
     RUN_TEST(testNothingToAwaitWhenAlreadyZero);
 }

@@ -22,7 +22,19 @@ switched off (configurable).
 Working end to end: Eureka Precisa → adapter → Profitec Move 2.0 in offline mode, shot stops
 at the target weight.
 
+## Updates over Bluetooth
+
+From 2.0 on, new firmware installs from the browser: hold the adapter's **BOOT** button for 3 s
+(LED purple), open the [updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)
+in Chrome, Edge or (iOS) Bluefy, connect, install. A failed or interrupted update leaves the
+running firmware untouched, and a new firmware that doesn't start properly is rolled back.
+Guide, safety details and flash layout: [docs/update-over-bluetooth.md](docs/update-over-bluetooth.md).
+
+Coming from 1.x: flash 2.0 once over USB (it changes the flash layout), then update over Bluetooth.
+
 ## Pairing with the Move 2.0 (offline mode)
+
+Step-by-step guide with brewing and troubleshooting: [docs/pair-with-move.md](docs/pair-with-move.md).
 
 The machine connects to the scale stored in its offline-mode setting. The Make Coffee Yours
 app writes that setting, and it identifies the scale through the scale's Device Information
@@ -36,8 +48,10 @@ Service: on iOS the app cannot see Bluetooth addresses, so it derives the addres
    connection at a time, and a connected phone hides it from the machine.
 
 During a shot the Move only connects and listens to the weight: it sends no tare, timer or
-heartbeat. The adapter therefore zeroes the weight itself when the machine connects and tares the real scale
-(`BRIDGE_TARE_ON_CLIENT_CONNECT`), so a cup on the scale doesn't count towards the target.
+heartbeat, and it connects only a few seconds after the shot has started. Like a Lunar in its
+espresso modes, the adapter therefore tares the scale as soon as you put the cup down
+(`BRIDGE_AUTO_TARE`). If the cup wasn't tared, it zeroes the weight when the machine connects
+(`BRIDGE_TARE_ON_CLIENT_CONNECT`), so the cup never counts towards the target.
 
 Re-pair after anything changes the adapter's identity (another ESP32 board, a different
 `BRIDGE_NAME_PREFIX`). If the phone saw an older firmware without the Device Information
@@ -91,7 +105,9 @@ ESP-IDF **v5.4.4**. By default the Makefile uses a local install at `~/esp/esp-i
 
 ```sh
 make build           # firmware → build/
-make test            # host unit tests (protocols, drivers)
+make ota             # update package → build/acaia-bridge-esp32s3-vX.Y.Z-ota_update.bin
+make updater         # Bluetooth updater at http://localhost:8000, offering that package
+make test            # host unit tests (protocols, drivers, update session)
 make menuconfig      # "Acaia Bridge" menu for project options
 make shell           # shell with the IDF environment loaded
 ```
@@ -114,25 +130,29 @@ because Docker Desktop on macOS cannot pass USB devices into containers.
 
 ## Flashing a release
 
-No ESP-IDF needed. Each [release](../../releases) has two assets:
+No ESP-IDF needed. Any ESP32-S3 board works (all have at least 4 MB flash). Each
+[release](../../releases) has three assets:
 
-- `acaia-bridge-esp32s3-vX.Y.Z-merged.bin`: the complete image, flashed at address `0x0`.
-- `acaia-bridge-esp32s3-vX.Y.Z.zip`: the same image plus a flashing guide (README), the changelog,
-  the license and the separate images with `flash_args`.
+- `acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin`: the complete image (bootloader, partition
+  table, app) for flashing over USB at address `0x0`.
+- `acaia-bridge-esp32s3-vX.Y.Z-ota_update.bin`: the app alone, for
+  [updates over Bluetooth](docs/update-over-bluetooth.md).
+- `acaia-bridge-esp32s3-vX.Y.Z.zip`: both images, a flashing guide (README), the changelog, the
+  license and the separate images with `flash_args`.
 
 Connect the board with a USB data cable. On boards with two USB-C ports use the native **USB**
 port, not **UART/COM**.
 
-**In the browser** (Chrome or Edge on desktop):
+**In the browser** (Chrome or Edge on desktop; step-by-step guide: [docs/flash-in-browser.md](docs/flash-in-browser.md)):
 
 1. Open [ESP Tool](https://espressif.github.io/esptool-js/), baudrate `460800`, **Connect**, pick the port.
-2. Flash Address `0x0`, choose the `-merged.bin` file, **Program**.
-3. Press **RESET** on the board when it is done.
+2. Change Flash Address from the pre-filled `0x1000` to **`0x0`**, choose the `-to_flash_via_usb.bin` file, **Program**.
+3. **Disconnect**, then press **RST** on the board.
 
 **With esptool** (`uvx esptool` runs it via [uv](https://docs.astral.sh/uv/); or `pip install esptool`):
 
 ```sh
-uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-vX.Y.Z-merged.bin
+uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin
 ```
 
 `PORT` is `/dev/cu.usbmodem*` on macOS, `/dev/ttyACM0` on Linux, `COMx` on Windows.
@@ -141,11 +161,16 @@ If the board is not detected, enter download mode by hand: hold **BOOT**, press 
 **RESET**, release **BOOT**, flash again, then press **RESET**.
 
 After flashing, the LED blinks red until the scale is connected (see [Status LED](#status-led)).
-Updating to a newer release works the same way and keeps the pairing with the machine: the
-adapter's Bluetooth identity comes from the chip, not from the firmware.
+Later updates go [over Bluetooth](docs/update-over-bluetooth.md); flashing over USB still works
+and always boots the flashed version. Both keep the pairing with the machine: the adapter's
+Bluetooth identity comes from the chip, not from the firmware.
+
+The first USB flash of 2.0 over 1.x changes the flash layout: tick *Erase all* in ESP Tool (or run
+`esptool … erase-flash` first) so no remains of the old layout are left.
 
 CI (`.github/workflows/ci.yml`) also builds the firmware on every push and pull request and
-uploads the same files as a workflow artifact (`merged-binary.bin`), e.g. for testing a branch.
+uploads the same files as a workflow artifact (`acaia-bridge-esp32s3-to_flash_via_usb.bin`,
+`acaia-bridge-esp32s3-ota_update.bin`), e.g. for testing a branch.
 
 ## Releases and versioning
 
@@ -169,8 +194,12 @@ Versions follow [Semantic Versioning](https://semver.org) and are derived from
 ESP-IDF reads `version.txt` as the app version, so the firmware logs it at boot
 (`acaia-bridge 0.1.0`). Don't edit `version.txt` or `CHANGELOG.md` by hand; release-please owns them.
 
+Each push to `main` also deploys the [Bluetooth updater](web/updater/) to GitHub Pages, together
+with the latest release's `-ota_update.bin` and a `manifest.json` (version, size, SHA-256).
+
 The repository needs *Settings → Actions → General → Workflow permissions*: "Read and write
-permissions" and "Allow GitHub Actions to create and approve pull requests".
+permissions" and "Allow GitHub Actions to create and approve pull requests", and *Settings → Pages
+→ Source*: "GitHub Actions".
 
 ## Configuration (`make menuconfig` → Acaia Bridge)
 
@@ -178,12 +207,22 @@ permissions" and "Allow GitHub Actions to create and approve pull requests".
 |---|---|---|
 | `BRIDGE_NAME_PREFIX` | `LUNAR-` | advertised name prefix, MAC suffix appended |
 | `BRIDGE_ADVERTISE_WITHOUT_SCALE` | off | advertise even with no real scale, to test the machine side alone |
-| `BRIDGE_TARE_ON_CLIENT_CONNECT` | on | weight reads 0 when the machine connects (shot start), like a Lunar in auto-tare mode; zeroes instantly in software, then tares the real scale too |
+| `BRIDGE_AUTO_TARE` | on | tare as soon as a cup (≥ 20 g) is put down or taken off while the machine is not connected; slow changes such as pouring don't trigger it |
+| `BRIDGE_TARE_ON_CLIENT_CONNECT` | on | when the machine connects with an untared cup on the scale, zero the weight (instantly in software, then the real scale, with retries); a reconnect within 10 s keeps the zero |
 | `BRIDGE_STATUS_LED` | on | status on an addressable RGB LED (WS2812), see below |
 | `BRIDGE_STATUS_LED_GPIO` | 48 | LED pin (DevKitC-1 v1.0: 48, v1.1: 38) |
 | `BRIDGE_STATUS_LED_BRIGHTNESS` | 24 | 1–255 |
 | `BRIDGE_LOG_SCAN_RESULTS` | off | log every named BLE device seen while scanning (find the name of a new scale) |
 | `BRIDGE_LOG_ACAIA_FRAMES` | on | hex-log machine ↔ adapter frames |
+| `BRIDGE_UPDATE_BUTTON` | on | hold a button for 3 s to enter (or leave) update mode |
+| `BRIDGE_UPDATE_BUTTON_GPIO` | 0 | BOOT button on DevKit boards |
+| `BRIDGE_UPDATE_POWER_CYCLES` | 3 | enter update mode after this many power-ons in a row, each shorter than 10 s (0 = off) |
+| `BRIDGE_UPDATE_MODE_TIMEOUT_MIN` | 5 | leave update mode after this many minutes without an update |
+
+Flash layout, bootloader rollback and BLE MTU are set in `sdkconfig.defaults` and `partitions.csv`.
+`sdkconfig.defaults` only applies to a new `sdkconfig`: after pulling 2.0, run `make fullclean`
+once (it also deletes `sdkconfig`; redo your menuconfig changes afterwards). `make ota` refuses to
+package an app built with an older `sdkconfig`.
 
 ## Status LED
 
@@ -192,6 +231,8 @@ permissions" and "Allow GitHub Actions to create and approve pull requests".
 | red, blinking | searching for the real scale; emulated Lunar hidden |
 | yellow | scale connected; Lunar visible, waiting for the coffee machine |
 | blue | coffee machine connected; weight is being relayed |
+| purple | update mode: waiting for firmware over Bluetooth, bridge off |
+| purple, fast blinking | receiving firmware |
 
 ## Architecture
 
@@ -200,6 +241,13 @@ main/
 ├── main.cpp                    composition root, app loop
 ├── bridge/Bridge               mediator: scale readings → Acaia, Acaia commands → scale
 ├── status/                     status LED: LedPattern (pure, host-tested) + StatusLed (WS2812)
+├── ota/                        firmware update over BLE
+│   ├── OtaProtocol, AppImage   pure wire format and image header check (host-tested)
+│   ├── OtaSession              pure transfer state machine over a FlashTarget (host-tested)
+│   ├── OtaService              NimBLE GATT service, queues writes for the app task
+│   ├── EspFlashTarget          esp_ota_* into the inactive slot
+│   ├── UpdateMode, Triggers    entering update mode: button, power-on sequence
+│   └── AppValidity             confirms a new image or lets the bootloader roll back
 ├── acaia/
 │   ├── AcaiaProtocol           pure frame encode/decode (host-tested)
 │   └── AcaiaPeripheral         NimBLE GATT server posing as a Lunar
@@ -208,6 +256,8 @@ main/
     ├── DriverRegistry.hpp      factory: advertisement → driver
     ├── ScaleClient             NimBLE central: scan, connect, subscribe, feed driver
     └── drivers/                one class per scale model + Drivers.cpp registration
+web/updater/                    Bluetooth updater page (Web Bluetooth, no build step)
+partitions.csv                  flash layout, frozen since 2.0
 ```
 
 - **Drivers know no BLE.** A driver declares its GATT profile and translates bytes.
@@ -216,6 +266,8 @@ main/
   a fake transport.
 - **One app task.** NimBLE callbacks only queue events. `ScaleClient::poll()` and
   `Bridge::poll()` run on the app task, so drivers and the bridge never run concurrently.
+- **Two boot modes.** Bridge mode runs the scale client and the emulated Lunar; update mode runs
+  only the update service. Switching restarts the chip. The GATT table is the same in both.
 - BLE: [esp-nimble-cpp](https://github.com/h2zero/esp-nimble-cpp) (C++ wrapper over NimBLE).
 
 ## Adding a scale

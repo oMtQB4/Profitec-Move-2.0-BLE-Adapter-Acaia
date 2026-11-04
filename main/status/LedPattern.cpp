@@ -5,11 +5,13 @@ namespace status {
 namespace {
 
 constexpr uint32_t kBlinkHalfPeriodMs = 500;
+constexpr uint32_t kFastBlinkHalfPeriodMs = 100;
 
 constexpr Color kOff{0, 0, 0};
 constexpr Color kRed{255, 0, 0};
 constexpr Color kYellow{255, 160, 0};
 constexpr Color kBlue{0, 0, 255};
+constexpr Color kPurple{160, 0, 255};
 
 Color scaled(Color color, uint8_t brightness)
 {
@@ -36,6 +38,10 @@ Color colorFor(State state, uint32_t nowMs, uint8_t brightness)
         return scaled(kYellow, brightness);
     case State::Bridging:
         return scaled(kBlue, brightness);
+    case State::UpdateMode:
+        return scaled(kPurple, brightness);
+    case State::Updating:
+        return (nowMs / kFastBlinkHalfPeriodMs) % 2 == 0 ? scaled(kPurple, brightness) : kOff;
     }
     return kOff;
 }

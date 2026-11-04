@@ -1,6 +1,25 @@
 CONFIG_IDF_TARGET="esp32s3"
 
-# Bluetooth: NimBLE, central (real scale) + peripheral (emulated Acaia)
+# Flash: 4 MB is the smallest ESP32-S3 module; the layout in partitions.csv is
+# frozen once devices update over Bluetooth (see the comment there).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# Bootloader: never updated over the air, so its features are fixed now.
+# A new app must confirm itself (ota/AppValidity); otherwise the next reset
+# boots the previous app again.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Crash dumps go to the coredump partition (read with `idf.py coredump-info`).
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+
+# The app task also runs the update session (esp_ota_end verifies the image).
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+
+# Bluetooth: NimBLE, central (real scale) + peripheral (emulated Acaia, updates)
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
@@ -8,3 +27,5 @@ CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
 CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=2
+# Largest ATT MTU: 510 bytes of firmware per packet during an update.
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=517

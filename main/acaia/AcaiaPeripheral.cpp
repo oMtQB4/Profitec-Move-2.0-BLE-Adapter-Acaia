@@ -37,10 +37,6 @@ void AcaiaPeripheral::begin()
     writeChar->setCallbacks(this);
     auxChar->setCallbacks(this);
     addDeviceInformationService();
-    server_->start();
-    // start() re-initializes the GAP service, which resets the device name to
-    // CONFIG_BT_NIMBLE_SVC_GAP_DEVICE_NAME ("nimble").
-    NimBLEDevice::setDeviceName(advertisedName_);
 
     // A 128-bit UUID and the name don't both fit into 31 bytes: name in the
     // advertisement, service UUID in the scan response.

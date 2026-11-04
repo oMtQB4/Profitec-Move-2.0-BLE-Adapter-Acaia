@@ -32,6 +32,16 @@ void testConnectedStatesAreSteady()
     TEST_ASSERT_TRUE(colorFor(State::Bridging, 500, 255) == (Color{0, 0, 255}));
 }
 
+void testUpdateStates()
+{
+    const Color purple = colorFor(State::UpdateMode, 0, 255);
+    TEST_ASSERT_TRUE(purple == (Color{160, 0, 255}));
+    TEST_ASSERT_TRUE(colorFor(State::UpdateMode, 500, 255) == purple);
+    TEST_ASSERT_TRUE(colorFor(State::Updating, 0, 255) == purple);
+    TEST_ASSERT_TRUE(colorFor(State::Updating, 100, 255) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::Updating, 200, 255) == purple);
+}
+
 void testBrightnessScalesChannels()
 {
     TEST_ASSERT_TRUE(colorFor(State::Bridging, 0, 24) == (Color{0, 0, 24}));
@@ -45,5 +55,6 @@ void runLedPatternTests()
     RUN_TEST(testStateFromConnections);
     RUN_TEST(testSearchingBlinksRed);
     RUN_TEST(testConnectedStatesAreSteady);
+    RUN_TEST(testUpdateStates);
     RUN_TEST(testBrightnessScalesChannels);
 }

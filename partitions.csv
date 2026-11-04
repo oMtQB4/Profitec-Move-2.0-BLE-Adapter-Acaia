@@ -1,0 +1,26 @@
+# Flash layout for every ESP32-S3 board (minimum flash size 4 MB).
+#
+# FROZEN: updates over Bluetooth replace only the app, never this table or the
+# bootloader. Any change here needs a USB flash on every device. Grow features
+# into the spare room instead (app slots, storage, NVS).
+#
+#   0x000000  bootloader           32 KB  (fixed, before the table)
+#   0x008000  partition table       4 KB  (CONFIG_PARTITION_TABLE_OFFSET)
+#   0x009000  nvs                  80 KB  settings, BLE keys, PHY calibration
+#   0x01D000  otadata               8 KB  which app slot boots, rollback state
+#   0x01F000  phy_init              4 KB  optional PHY init data
+#   0x020000  ota_0              1792 KB  app slot A (the firmware is ~0.6 MB)
+#   0x1E0000  ota_1              1792 KB  app slot B
+#   0x3A0000  storage             320 KB  reserved file system (LittleFS/SPIFFS)
+#   0x3F0000  coredump             64 KB  last crash, for field debugging
+#   0x400000  end of 4 MB; larger flash stays unused
+#
+# App slots start on 64 KB boundaries (MMU page size).
+# Name,    Type, SubType,  Offset,    Size
+nvs,       data, nvs,      0x9000,    0x14000
+otadata,   data, ota,      0x1D000,   0x2000
+phy_init,  data, phy,      0x1F000,   0x1000
+ota_0,     app,  ota_0,    0x20000,   0x1C0000
+ota_1,     app,  ota_1,    0x1E0000,  0x1C0000
+storage,   data, spiffs,   0x3A0000,  0x50000
+coredump,  data, coredump, 0x3F0000,  0x10000

@@ -9,6 +9,8 @@ enum class State {
     SearchingScale,    // no real scale; fake Lunar hidden          -> red, blinking
     WaitingForMachine, // scale connected; fake Lunar advertising   -> yellow, steady
     Bridging,          // scale and coffee machine connected        -> blue, steady
+    UpdateMode,        // waiting for firmware over Bluetooth       -> purple, steady
+    Updating,          // receiving firmware                        -> purple, fast blinking
 };
 
 struct Color {

@@ -10,6 +10,8 @@ void runSoftwareTareTests();
 void runDriverFrameworkTests();
 void runMoveListDriverTests();
 void runMoreDriverTests();
+void runTareControllerTests();
+void runOtaTests();
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -27,5 +29,7 @@ int main()
     runDriverFrameworkTests();
     runMoveListDriverTests();
     runMoreDriverTests();
+    runTareControllerTests();
+    runOtaTests();
     return UNITY_END();
 }

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acaia Bridge Updater</title>
+  <meta name="description" content="Update the Acaia Bridge adapter over Bluetooth, right from the browser.">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f5f8;
+      --card: #ffffff;
+      --text: #1c1b20;
+      --muted: #5f5d68;
+      --line: #e3e1e8;
+      --accent: #7b2ff2;
+      --accent-text: #ffffff;
+      --ok: #1f7a4d;
+      --ok-bg: #e6f4ec;
+      --err: #b42318;
+      --err-bg: #fdecea;
+      --warn-bg: #fff6e0;
+      --track: #ebe8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #131216;
+        --card: #1d1c22;
+        --text: #ecebf0;
+        --muted: #a3a1ad;
+        --line: #302e37;
+        --accent: #a77bff;
+        --accent-text: #15131a;
+        --ok: #6fd3a0;
+        --ok-bg: #16281f;
+        --err: #ff8a80;
+        --err-bg: #2d1717;
+        --warn-bg: #2b2414;
+        --track: #2c2a33;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .lead { color: var(--muted); margin: 0 0 24px; }
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    section[aria-disabled="true"] { opacity: 0.55; }
+    h2 { font-size: 1.05rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+    .step {
+      display: inline-grid; place-items: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--accent); color: var(--accent-text);
+      font-size: 0.85rem; font-weight: 700; flex: none;
+    }
+    p { margin: 0 0 12px; }
+    p:last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    ul { margin: 0 0 12px; padding-left: 20px; }
+    li { margin-bottom: 4px; }
+    label.choice {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+      margin-bottom: 8px; cursor: pointer;
+    }
+    label.choice:has(input:checked) { border-color: var(--accent); }
+    label.choice input { margin-top: 4px; accent-color: var(--accent); }
+    input[type="file"] { max-width: 100%; margin-top: 6px; font: inherit; font-size: 0.9rem; }
+    button {
+      font: inherit; font-weight: 600;
+      border: 0; border-radius: 10px;
+      padding: 10px 18px; min-height: 44px;
+      background: var(--accent); color: var(--accent-text);
+      cursor: pointer;
+    }
+    button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .summary {
+      display: grid; grid-template-columns: auto 1fr; gap: 4px 16px;
+      margin: 0 0 12px; font-size: 0.95rem;
+    }
+    .summary dt { color: var(--muted); }
+    .summary dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    progress {
+      width: 100%; height: 12px; margin: 4px 0 8px;
+      appearance: none; border: 0; border-radius: 6px; overflow: hidden;
+      background: var(--track);
+    }
+    progress::-webkit-progress-bar { background: var(--track); }
+    progress::-webkit-progress-value { background: var(--accent); }
+    progress::-moz-progress-bar { background: var(--accent); }
+    .stats { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    .notice { border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; }
+    .notice.error { background: var(--err-bg); color: var(--err); }
+    .notice.ok { background: var(--ok-bg); color: var(--ok); }
+    .notice.warn { background: var(--warn-bg); }
+    .led { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; background: #a000ff; vertical-align: -0.05em; }
+    [hidden] { display: none !important; }
+    footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 24px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Acaia Bridge Updater</h1>
+  <p class="lead">Install new firmware on your adapter over Bluetooth. No cable, no installation.</p>
+
+  <div id="not-loaded" class="notice error" hidden>
+    <strong>The page didn't load completely.</strong>
+    <span id="not-loaded-detail">Reload it. If that doesn't help, check that JavaScript is enabled.</span>
+  </div>
+
+  <div id="unsupported-brave" class="notice warn" hidden>
+    <strong>Brave has Web Bluetooth switched off.</strong>
+    Open <code>brave://flags/#brave-web-bluetooth-api</code>, set <em>Web Bluetooth API</em> to
+    <strong>Enabled</strong>, relaunch Brave and reload this page.
+  </div>
+
+  <div id="unsupported" class="notice warn" hidden>
+    <strong>This browser can't use Bluetooth.</strong>
+    Open this page in <strong>Chrome</strong> or <strong>Edge</strong> on Windows, macOS, Linux or Android.
+    On iPhone and iPad, use the free <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055">Bluefy</a> browser.
+  </div>
+
+  <section id="firmware-step">
+    <h2><span class="step">1</span>Choose the firmware</h2>
+    <label class="choice" id="latest-choice" hidden>
+      <input type="radio" name="source" value="latest" checked>
+      <span>Latest release <strong id="latest-version"></strong><br><span class="muted" id="latest-detail"></span></span>
+    </label>
+    <label class="choice">
+      <input type="radio" name="source" value="file" id="file-radio">
+      <span>
+        A file from this device<br>
+        <span class="muted">The <code>…-ota_update.bin</code> file of a release.</span><br>
+        <input type="file" id="file-input" accept=".bin,application/octet-stream">
+      </span>
+    </label>
+    <p id="firmware-status" class="muted" aria-live="polite"></p>
+  </section>
+
+  <section id="adapter-step">
+    <h2><span class="step">2</span>Connect the adapter</h2>
+    <p>Put the adapter into <strong>update mode</strong>; its LED turns <span class="led" aria-hidden="true"></span> purple:</p>
+    <ul>
+      <li>hold its <strong>BOOT</strong> button for 3 seconds, or</li>
+      <li>without access to the button: plug it in, unplug it within a few seconds, and repeat until it has been plugged in 3 times.</li>
+    </ul>
+    <p class="muted">Update mode ends by itself after 5 minutes without an update. Close the Make Coffee Yours app first if it's open.</p>
+    <dl class="summary" id="adapter-summary" hidden>
+      <dt>Adapter</dt><dd id="adapter-name"></dd>
+      <dt>Installed</dt><dd id="adapter-version"></dd>
+    </dl>
+    <div id="connect-result" class="notice error" role="alert" hidden></div>
+    <div class="row">
+      <button id="connect">Connect</button>
+      <button id="disconnect" class="secondary" hidden>Disconnect</button>
+    </div>
+  </section>
+
+  <section id="update-step" aria-disabled="true">
+    <h2><span class="step">3</span>Update</h2>
+    <p id="update-plan" class="muted">Choose the firmware and connect the adapter first.</p>
+    <div id="progress-box" hidden>
+      <progress id="progress" max="1" value="0"></progress>
+      <div class="stats"><span id="progress-percent">0 %</span><span id="progress-rate"></span></div>
+      <p class="muted">Keep this page open and the device close to the adapter.</p>
+    </div>
+    <div id="result" class="notice" role="status" hidden></div>
+    <div class="row">
+      <button id="start" disabled>Install</button>
+      <button id="cancel" class="secondary" hidden>Cancel</button>
+    </div>
+  </section>
+
+  <footer>
+    If an update fails, the adapter keeps its current firmware. A new firmware that doesn't start
+    properly is replaced by the previous one automatically.
+    <br><a href="https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/blob/main/docs/update-over-bluetooth.md">Help</a>
+    · <a href="https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases">Releases</a>
+  </footer>
+</main>
+<script type="module" src="updater.js"></script>
+<script>
+  // Module scripts don't load from file:// (and fail silently): say so instead of a dead page.
+  window.addEventListener("load", function () {
+    if (window.updaterLoaded) return;
+    document.getElementById("not-loaded").hidden = false;
+    if (location.protocol === "file:") {
+      document.getElementById("not-loaded-detail").textContent =
+        "It was opened as a file. Open it from the web (https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/) " +
+        "or serve it locally with 'make updater' and open http://localhost:8000.";
+    }
+  });
+</script>
+</body>
+</html>
