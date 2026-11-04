@@ -18,6 +18,12 @@ constexpr const char* TAG = "scale";
 constexpr uint32_t kConnectTimeoutMs = 5000;
 constexpr uint32_t kTickPeriodMs = 50;
 constexpr UBaseType_t kNotificationQueueLength = 16;
+// A scan that failed to start, or stopped without telling us, is retried after this.
+constexpr uint32_t kScanRetryMs = 1000;
+// Long scans are restarted now and then, in case the controller stops reporting.
+constexpr uint32_t kScanRestartMs = 60000;
+// Waiting for the disconnect after a failed subscribe: give up and scan again after this.
+constexpr uint32_t kConnectingGiveUpMs = kConnectTimeoutMs + 5000;
 
 uint32_t nowMs()
 {
@@ -68,6 +74,8 @@ void ScaleClient::poll()
             connect();
         } else if (scanEnded_.exchange(false)) {
             startScan();
+        } else {
+            checkScan(nowMs());
         }
         break;
     case State::Connected: {
@@ -82,6 +90,12 @@ void ScaleClient::poll()
         break;
     }
     case State::Connecting:
+        // Only left waiting for onDisconnect after a failed subscribe; don't wait forever.
+        if (nowMs() - stateSinceMs_ >= kConnectingGiveUpMs) {
+            ESP_LOGW(TAG, "no disconnect after a failed connection, scanning again");
+            client_->disconnect();
+            handleDisconnect();
+        }
         break;
     }
 }
@@ -169,15 +183,32 @@ void ScaleClient::onDisconnect(NimBLEClient* client, int reason)
 void ScaleClient::startScan()
 {
     state_ = State::Scanning;
+    stateSinceMs_ = nowMs();
     scanEnded_.store(false);
     ESP_LOGI(TAG, "scanning for scales");
-    NimBLEDevice::getScan()->start(0, false, true);
+    if (!NimBLEDevice::getScan()->start(0, false, true)) {
+        // E.g. BLE_HS_EBUSY while a connection attempt is still being cancelled.
+        // checkScan() retries; without that the adapter would wait for a reset.
+        ESP_LOGW(TAG, "scan did not start, retrying");
+    }
+}
+
+void ScaleClient::checkScan(uint32_t nowMs)
+{
+    const uint32_t elapsed = nowMs - stateSinceMs_;
+    if (!NimBLEDevice::getScan()->isScanning() && elapsed >= kScanRetryMs) {
+        ESP_LOGW(TAG, "scan not running, restarting");
+        startScan();
+    } else if (elapsed >= kScanRestartMs) {
+        startScan(); // restart=true stops and starts the running scan
+    }
 }
 
 void ScaleClient::connect()
 {
     NimBLEDevice::getScan()->stop();
     state_ = State::Connecting;
+    stateSinceMs_ = nowMs();
     candidateFound_.store(false);
 
     ESP_LOGI(TAG, "connecting to %.*s at %s", static_cast<int>(candidateEntry_->name.size()),

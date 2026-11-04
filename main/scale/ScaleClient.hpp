@@ -54,6 +54,8 @@ private:
     void onDisconnect(NimBLEClient* client, int reason) override;
 
     void startScan();
+    /** Restarts a scan that should be running but isn't, or has run for long. */
+    void checkScan(uint32_t nowMs);
     void connect();
     bool subscribe();
     void handleDisconnect();
@@ -67,6 +69,7 @@ private:
     NimBLERemoteCharacteristic* writeChar_ = nullptr;
     std::unique_ptr<Driver> driver_;
     uint32_t lastTickMs_ = 0;
+    uint32_t stateSinceMs_ = 0; // when the current scan or connection attempt began
 
     // Handed from host task to app task.
     std::atomic<bool> candidateFound_{false};
