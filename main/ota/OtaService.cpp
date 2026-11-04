@@ -170,7 +170,7 @@ void OtaService::handle(const Message& message, uint32_t nowMs)
         return;
     }
     if (updateMode_.load() && commandOpcode(data) == Opcode::Begin) {
-        speedUp(message.connHandle);
+        logLink(message.connHandle);
     }
     if (commandOpcode(data) == Opcode::End && isTransferring()) {
         const int64_t elapsedUs = esp_timer_get_time() - startedUs_;
@@ -215,22 +215,23 @@ void OtaService::traceData(const Message& message)
     }
 }
 
-/** Short connection interval, long packets and 2M PHY; a client may refuse any of it. */
-void OtaService::speedUp(uint16_t connHandle)
+/**
+ * Logs the link the transfer runs on. The adapter deliberately requests no
+ * connection parameters: with Chrome on macOS the data stream slowed from
+ * ~18 KB/s to one packet per ~2 s as soon as such an update took effect, and
+ * the central already negotiates 251-byte packets and 2M PHY by itself.
+ */
+void OtaService::logLink(uint16_t connHandle)
 {
-    if (connHandle == tunedConn_) {
+    if (connHandle == loggedConn_) {
         return;
     }
-    tunedConn_ = connHandle;
+    loggedConn_ = connHandle;
     ble_gap_conn_desc desc;
     if (ble_gap_conn_find(connHandle, &desc) == 0) {
         ESP_LOGI(TAG, "link at Begin: interval %.2f ms, latency %u, MTU %u", desc.conn_itvl * 1.25, desc.conn_latency,
                  ble_att_mtu(connHandle));
     }
-    NimBLEServer* server = NimBLEDevice::getServer();
-    server->setDataLen(connHandle, 251);
-    server->updatePhy(connHandle, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
-    server->updateConnParams(connHandle, 12, 24, 0, 400); // 15-30 ms, 4 s supervision timeout
 }
 
 void OtaService::notify(std::span<const uint8_t> frame)

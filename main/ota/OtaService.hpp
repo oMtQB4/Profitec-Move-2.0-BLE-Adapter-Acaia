@@ -65,7 +65,7 @@ private:
 
     void handle(const Message& message, uint32_t nowMs);
     void traceData(const Message& message);
-    void speedUp(uint16_t connHandle);
+    void logLink(uint16_t connHandle);
     void flushNotifications();
     void keepAdvertising();
 
@@ -80,7 +80,7 @@ private:
     std::atomic<bool> transferring_{false};
     std::atomic<bool> overflow_{false};
     uint16_t sessionConn_ = BLE_HS_CONN_HANDLE_NONE;
-    uint16_t tunedConn_ = BLE_HS_CONN_HANDLE_NONE;
+    uint16_t loggedConn_ = BLE_HS_CONN_HANDLE_NONE;
     uint32_t lastActivityMs_ = 0;
     int64_t startedUs_ = 0; // transfer statistics
     int64_t busyUs_ = 0;
