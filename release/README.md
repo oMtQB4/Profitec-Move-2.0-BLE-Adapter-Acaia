@@ -20,14 +20,14 @@ weight of another Bluetooth scale. Project, supported scales and pairing guide:
 - A USB data cable (not a charge-only cable). On boards with two USB-C ports, use the one marked
   **USB** (native USB), not **UART/COM**: the UART port is slower and less reliable here.
 
-## Already on 2.0 or later? Update over Bluetooth
+## Already on 1.1.0 or later? Update over Bluetooth
 
 No cable needed: hold the adapter's BOOT button for 3 s (LED purple), open
 https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/ in Chrome, Edge or (iOS) Bluefy,
 connect and install. Guide: {{REPOSITORY_URL}}/blob/main/docs/update-over-bluetooth.md
 
-Coming from 1.x, flash once over USB as below and erase the flash first (Option A: tick
-*Erase all*; Option B: run `erase-flash` before `write-flash`): 2.0 changed the flash layout.
+Coming from 1.0.x, flash once over USB as below and erase the flash first (Option A: tick
+*Erase all*; Option B: run `erase-flash` before `write-flash`): 1.1.0 changed the flash layout.
 
 ## Option A: flash in the browser (no installation)
 
@@ -50,7 +50,7 @@ Alternatively run `pip install esptool` and call `esptool` directly.
 uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-{{VERSION}}-to_flash_via_usb.bin
 ```
 
-Over a 1.x firmware, erase first: `uvx esptool --chip esp32s3 -p PORT erase-flash`.
+Over a 1.0.x firmware, erase first: `uvx esptool --chip esp32s3 -p PORT erase-flash`.
 
 `PORT` is the board's serial port:
 

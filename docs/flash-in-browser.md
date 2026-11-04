@@ -25,8 +25,8 @@ browser. Nothing to install, and the firmware file never leaves your computer.
    `0x1000` (correct for the original ESP32 only). **Change it to `0x0`**: at `0x1000` the ESP32-S3
    doesn't boot.
 4. **Choose the file**: click the file field in that row and select the `…-to_flash_via_usb.bin`.
-   Leave *Flash Mode* `keep` and *Flash Size* `detect`. Tick *Erase all* only when you install 2.0
-   or later over a 1.x firmware (the flash layout changed); otherwise leave it unticked.
+   Leave *Flash Mode* `keep` and *Flash Size* `detect`. Tick *Erase all* only when you install 1.1.0
+   or later over a 1.0.x firmware (the flash layout changed); otherwise leave it unticked.
 5. **Program.** Click **Program** and wait until the progress bar reaches 100 % and the log stops.
 6. **Restart.** Click **Disconnect**, then press **RST** on the board (or unplug and replug it).
 

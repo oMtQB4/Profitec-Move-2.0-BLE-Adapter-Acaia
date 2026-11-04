@@ -1,9 +1,9 @@
 # Update the firmware over Bluetooth
 
-From version 2.0 on, the adapter installs new firmware over Bluetooth, straight from a web page.
+From version 1.1.0 on, the adapter installs new firmware over Bluetooth, straight from a web page.
 No cable, no installation, and the adapter can stay where it is.
 
-> Coming from version 1.x? Flash 2.0 **once over USB** ([guide](flash-in-browser.md)): 2.0 changes
+> Coming from version 1.0.x? Flash 1.1.0 **once over USB** ([guide](flash-in-browser.md)): 1.1.0 changes
 > the flash layout so that the adapter can hold two firmware versions. All later updates work over
 > Bluetooth.
 
@@ -94,7 +94,7 @@ and implemented by the page in [`web/updater/protocol.js`](../web/updater/protoc
 
 ## Flash layout
 
-`partitions.csv`, fixed for all versions from 2.0 on (only a USB flash could change it):
+`partitions.csv`, fixed for all versions from 1.1.0 on (only a USB flash could change it):
 
 | Partition | Offset | Size | Purpose |
 |---|---|---|---|

@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml/badge.svg)](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml)
 
+**[Bluetooth updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)** ·
+[Latest release](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases/latest) ·
+[Flash over USB](docs/flash-in-browser.md) · [Pair with the Move](docs/pair-with-move.md)
+
 
 ESP32-S3 firmware that makes any supported BLE coffee scale look like an Acaia Lunar.
 
@@ -24,13 +28,15 @@ at the target weight.
 
 ## Updates over Bluetooth
 
-From 2.0 on, new firmware installs from the browser: hold the adapter's **BOOT** button for 3 s
+**Updater: <https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/>**
+
+From 1.1.0 on, new firmware installs from the browser: hold the adapter's **BOOT** button for 3 s
 (LED purple), open the [updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)
 in Chrome, Edge or (iOS) Bluefy, connect, install. A failed or interrupted update leaves the
 running firmware untouched, and a new firmware that doesn't start properly is rolled back.
 Guide, safety details and flash layout: [docs/update-over-bluetooth.md](docs/update-over-bluetooth.md).
 
-Coming from 1.x: flash 2.0 once over USB (it changes the flash layout), then update over Bluetooth.
+Coming from 1.0.x: flash 1.1.0 once over USB (it changes the flash layout), then update over Bluetooth.
 
 ## Pairing with the Move 2.0 (offline mode)
 
@@ -165,7 +171,7 @@ Later updates go [over Bluetooth](docs/update-over-bluetooth.md); flashing over 
 and always boots the flashed version. Both keep the pairing with the machine: the adapter's
 Bluetooth identity comes from the chip, not from the firmware.
 
-The first USB flash of 2.0 over 1.x changes the flash layout: tick *Erase all* in ESP Tool (or run
+The first USB flash of 1.1.0 or later over 1.0.x changes the flash layout: tick *Erase all* in ESP Tool (or run
 `esptool … erase-flash` first) so no remains of the old layout are left.
 
 CI (`.github/workflows/ci.yml`) also builds the firmware on every push and pull request and
@@ -220,7 +226,7 @@ permissions" and "Allow GitHub Actions to create and approve pull requests", and
 | `BRIDGE_UPDATE_MODE_TIMEOUT_MIN` | 5 | leave update mode after this many minutes without an update |
 
 Flash layout, bootloader rollback and BLE MTU are set in `sdkconfig.defaults` and `partitions.csv`.
-`sdkconfig.defaults` only applies to a new `sdkconfig`: after pulling 2.0, run `make fullclean`
+`sdkconfig.defaults` only applies to a new `sdkconfig`: after pulling 1.1.0, run `make fullclean`
 once (it also deletes `sdkconfig`; redo your menuconfig changes afterwards). `make ota` refuses to
 package an app built with an older `sdkconfig`.
 
@@ -257,7 +263,7 @@ main/
     ├── ScaleClient             NimBLE central: scan, connect, subscribe, feed driver
     └── drivers/                one class per scale model + Drivers.cpp registration
 web/updater/                    Bluetooth updater page (Web Bluetooth, no build step)
-partitions.csv                  flash layout, frozen since 2.0
+partitions.csv                  flash layout, frozen since 1.1.0
 ```
 
 - **Drivers know no BLE.** A driver declares its GATT profile and translates bytes.
