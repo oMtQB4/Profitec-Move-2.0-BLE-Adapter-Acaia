@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/compare/v1.1.0...v1.1.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* BLE reconnect issue possibly fixed ([e42a986](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/commit/e42a986ca7aefb20574a506a471beaed0a281b7e))
+
 ## [1.1.0](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/compare/v1.0.0...v1.1.0) (2026-11-04)
 
 
