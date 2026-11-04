@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/compare/v1.0.0...v1.1.0) (2026-11-04)
+
+
+### Features
+
+* OTA updates via BLE ([e886c0b](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/commit/e886c0bf92965b3efa5a4b73a00bb3b8c501a317))
+
+
+### Bug Fixes
+
+* OTA connection issue ([ef31e70](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/commit/ef31e70345d4b25df6e3ca704ba5bc86986d6b4a))
+
 ## 1.0.0 (2026-10-31)
 
 
