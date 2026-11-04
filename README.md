@@ -4,116 +4,150 @@
 
 **[Bluetooth updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)** ·
 [Latest release](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases/latest) ·
-[Flash over USB](docs/flash-in-browser.md) · [Pair with the Move](docs/pair-with-move.md)
+[Flash over USB](docs/flash-in-browser.md) · [Pair with the Move](docs/pair-with-move.md) ·
+[Demo video](https://youtu.be/6yaJZlYYOEI)
 
+Brew-by-weight on the **Profitec Move 2.0** with the Bluetooth scale you already have.
 
-ESP32-S3 firmware that makes any supported BLE coffee scale look like an Acaia Lunar.
+The Move 2.0 only does brew-by-weight in offline mode with Acaia scales. This firmware turns an
+ESP32-S3 board into an adapter: it connects to your real scale and appears to the machine as an
+Acaia Lunar (`LUNAR-xxxxxx`), relaying the weight one way and tare/timer commands the other.
 
-The Profitec Move 2.0 only does brew-by-weight with Acaia scales. This adapter connects to
-your real scale as a BLE central, advertises itself as `LUNAR-xxxxxx` towards the machine
-and relays in both directions:
+![Your scale sends its weight to the ESP32-S3 adapter, which appears to the Profitec Move 2.0 as an Acaia Lunar; tare and timer commands go the other way](docs/images/overview.svg)
 
-```
- real scale  ──notify weight──▶  ESP32-S3  ──Acaia weight events──▶  Profitec Move 2.0
- (Eureka …)  ◀──tare / timer───  (bridge)  ◀──tare / timer cmds────  (thinks: Acaia Lunar)
-```
+- **Works end to end** with the Eureka Precisa: the shot stops at the target weight.
+- **Tares by itself** when you put the cup down, like a Lunar in its espresso modes.
+- **Updates over Bluetooth** from the browser, after a first installation over USB.
+- **Status LED** shows whether the scale and the machine are connected.
 
-The emulated Lunar only advertises while a real scale is connected, like a scale that is
-switched off (configurable).
+**Demonstration:** [Profitec Move 2.0 - Offline mode with nearly every scale](https://youtu.be/6yaJZlYYOEI)
 
-## Status
-
-Working end to end: Eureka Precisa → adapter → Profitec Move 2.0 in offline mode, shot stops
-at the target weight.
-
-## Updates over Bluetooth
-
-**Updater: <https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/>**
-
-From 1.1.0 on, new firmware installs from the browser: hold the adapter's **BOOT** button for 3 s
-(LED purple), open the [updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)
-in Chrome, Edge or (iOS) Bluefy, connect, install. A failed or interrupted update leaves the
-running firmware untouched, and a new firmware that doesn't start properly is rolled back.
-Guide, safety details and flash layout: [docs/update-over-bluetooth.md](docs/update-over-bluetooth.md).
-
-Coming from 1.0.x: flash 1.1.0 once over USB (it changes the flash layout), then update over Bluetooth.
-
-## Pairing with the Move 2.0 (offline mode)
-
-Step-by-step guide with brewing and troubleshooting: [docs/pair-with-move.md](docs/pair-with-move.md).
-
-The machine connects to the scale stored in its offline-mode setting. The Make Coffee Yours
-app writes that setting, and it identifies the scale through the scale's Device Information
-Service: on iOS the app cannot see Bluetooth addresses, so it derives the address from the
-**serial number** (the adapter reports its Bluetooth address as hex, e.g. `28372F80E382`).
-
-1. Switch on the real scale and wait for the LED to turn yellow.
-2. In the app, connect the machine and the scale `LUNAR-xxxxxx`.
-3. Settings → turn **Offline-Modus** on (or off and on again) → **Speichern**.
-4. Close the app or turn off Bluetooth on the phone: the emulated Lunar accepts one
-   connection at a time, and a connected phone hides it from the machine.
-
-During a shot the Move only connects and listens to the weight: it sends no tare, timer or
-heartbeat, and it connects only a few seconds after the shot has started. Like a Lunar in its
-espresso modes, the adapter therefore tares the scale as soon as you put the cup down
-(`BRIDGE_AUTO_TARE`). If the cup wasn't tared, it zeroes the weight when the machine connects
-(`BRIDGE_TARE_ON_CLIENT_CONNECT`), so the cup never counts towards the target.
-
-Re-pair after anything changes the adapter's identity (another ESP32 board, a different
-`BRIDGE_NAME_PREFIX`). If the phone saw an older firmware without the Device Information
-Service, toggle the phone's Bluetooth once so iOS refreshes its cached services.
+[![Video: Profitec Move 2.0 - Offline mode with nearly every scale](https://i.ytimg.com/vi/6yaJZlYYOEI/hqdefault.jpg)](https://youtu.be/6yaJZlYYOEI)
 
 ## Supported scales
 
-Only the Eureka Precisa has been tested with a real device. All other drivers are
-**integrated but not tested with a real device**: they implement the protocols documented by the
-open-source projects listed under [Protocol references](#protocol-references) and pass unit tests
-with the frames from those sources, but nobody has run them against the actual scale yet. Reports
-(serial log with `BRIDGE_LOG_SCAN_RESULTS` on) are welcome.
+Only the **Eureka Precisa** has been tested with a real device. All other scales are
+**integrated but not tested with a real device**: their drivers implement protocols documented
+by open-source projects (see [Protocol references](#protocol-references)) and pass unit tests with
+frames from those sources. Reports are welcome, ideally with a serial log
+(`BRIDGE_LOG_SCAN_RESULTS` on).
 
-"Move app" marks scales Profitec lists as compatible with the Move 2.0 in app mode.
+| Scale | On the Move app list | Tare | Timer | Status |
+|---|---|---|---|---|
+| Eureka Precisa | yes | yes | yes | **tested on hardware** |
+| Solo Barista | yes | yes | yes | integrated, not tested |
+| Decent Scale (+ ButtsHaus clones) | yes | yes | yes | integrated, not tested |
+| DiFluid Microbalance / Microbalance Ti | yes | yes | start/stop | integrated, not tested |
+| Felicita Arc / Parallel / Incline | yes | yes | yes | integrated, not tested |
+| Hiroia Jimmy | yes | yes | – | integrated, not tested |
+| Skale II (Atomax) | yes | yes | yes | integrated, not tested |
+| Varia AKU / AKU Mini | yes | yes | yes | integrated, not tested |
+| Goat Story Gina | yes | software | – | integrated, not tested |
+| Bookoo Themis Mini / Ultra | – | yes | yes | integrated, not tested |
+| Timemore Black Mirror / Basic 3 / Dot | – | yes | yes | integrated, not tested |
+| EspressiScale (DIY) | – | yes | yes | integrated, not tested |
+| Smartchef | – | software | – | integrated, not tested |
+| Blackcoffee.io | – | software | – | integrated, not tested |
+| Futula Kitchen Scale 3 (LEFU CK811) | – | yes | – | integrated, not tested |
+| Mantabrew WeighMaster 2.0 | – | yes | yes | integrated, not tested |
+| WeighMyBru (DIY) | – | yes | yes | integrated, not tested |
+| DIY mpy-coffee / coffee-scale (beeb) | – | software | – | integrated, not tested |
 
-| Scale | Advertised name / match | Move app | Tare | Timer | Protocol confidence | Status |
-|---|---|---|---|---|---|---|
-| Eureka Precisa | `CFS-9002` | yes | yes | yes | 2 sources | **tested on hardware** |
-| Solo Barista | `LSJ-001` | yes | yes | yes | 2 sources (same as Eureka) | integrated, not tested |
-| Decent Scale (+ ButtsHaus clones) | `Decent Scale…`, `ButtsHaus Scale…` | yes | yes | yes | 2 sources | integrated, not tested |
-| EspressiScale (DIY) | `EspressiScale` | – | yes | yes | 2 sources + firmware | integrated, not tested |
-| DiFluid Microbalance / Microbalance Ti | service `00EE` / `00DD`, or name `Microbalance…` | yes | yes | start/stop | 3 sources incl. vendor doc | integrated, not tested |
-| Felicita Arc / Parallel / Incline | contains `felicita` | yes | yes | yes | 2 sources | integrated, not tested |
-| Hiroia Jimmy | `HIROIA…` | yes | yes | – | 2 sources | integrated, not tested |
-| Skale II (Atomax) | `Skale…` | yes | yes | yes | 2 sources | integrated, not tested |
-| Varia AKU / AKU Mini | contains `Varia AKU` / `AKU MINI` | yes | yes | yes | 2 sources | integrated, not tested |
-| Goat Story Gina | service `91341521-…` | yes | software | – | 1 source | integrated, not tested |
-| Bookoo Themis Mini / Ultra | contains `BOOKOO_SC` | – | yes | yes | 4 sources incl. vendor doc | integrated, not tested |
-| Timemore Black Mirror | contains `Timemore Scale` | – | yes | yes | 1 source | integrated, not tested |
-| Timemore Basic 3 | `Basic3`, `Basic 3`, `Timemore…Basic` | – | yes | yes | 1 source | integrated, not tested |
-| Timemore Dot | `TES017`, `Timemore…Dot` | – | yes | yes | 2 sources (commands differ) | integrated, not tested |
-| Smartchef | contains `smartchef` | – | software | – | 2 sources | integrated, not tested |
-| Blackcoffee.io | contains `blackcoffee` / `my_scale` | – | software | – | 1 source | integrated, not tested |
-| Futula Kitchen Scale 3 (LEFU CK811) | contains `LFSmart Scale`, `LEFU-CK811…` | – | yes | – | 3 sources | integrated, not tested |
-| Mantabrew WeighMaster 2.0 | contains `WeighMaster` / `Mantabrew` | – | yes | yes | 1 source | integrated, not tested |
-| WeighMyBru (DIY) | `WeighMyBru…` | – | yes | yes | 2 sources + firmware | integrated, not tested |
-| DIY mpy-coffee / coffee-scale (beeb) | `mpy-coffee` / `coffee-scale` | – | software | – | 2 sources + firmware | integrated, not tested |
+"On the Move app list": Profitec lists the scale as compatible with the Move 2.0 in app mode.
+"software" tare: the scale takes no tare command, so the adapter zeroes the weight itself, which
+is all the machine needs.
 
-"software" tare: the scale accepts no tare command; the adapter zeroes the weight itself when the
-machine connects (`BRIDGE_TARE_ON_CLIENT_CONNECT`), which is all the Move 2.0 needs.
+**Not supported:** Ikape scale and Brewista X (on the Move app list, but no public Bluetooth
+protocol; a capture of the vendor app's traffic would be needed). Acaia scales need no adapter.
 
-**Not supported**
-- **Ikape scale, Brewista X** (on the Move app list): no public BLE protocol found. A Bluetooth
-  capture (Android HCI snoop log) with the vendor app would be needed.
-- **Acaia scales** need no adapter: the Move 2.0 pairs with them directly.
+## Getting started
 
-## Build
+You need:
+
+- An **ESP32-S3 board**, e.g. this [ESP32-S3-DevKitC-1 N16R8](https://amzn.eu/d/075jnXAs)
+  (any ESP32-S3 works; all have at least 4 MB flash), and a
+  **USB data cable**. On boards with two USB-C ports use the one labelled **USB**, not **COM/UART**.
+- A supported scale, the **Make Coffee Yours** app (once, for pairing) and, for the first
+  installation, a desktop computer with Chrome or Edge.
+
+### 1. First installation over USB
+
+Flashed once in the browser with Espressif's online tool, no installation needed
+(step by step with troubleshooting: [docs/flash-in-browser.md](docs/flash-in-browser.md)):
+
+1. Download `acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin` from the
+   [latest release](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases/latest)
+   and plug in the board.
+2. Open **[ESP Tool](https://espressif.github.io/esptool-js/)** in Chrome or Edge, set *Baudrate*
+   `460800`, click **Connect** and pick the board.
+3. Change *Flash Address* from the pre-filled `0x1000` to **`0x0`** and choose the downloaded file.
+4. Click **Program**, wait for 100 %, click **Disconnect** and press **RST** on the board.
+
+The LED now blinks red until the scale is connected. If the board isn't found, hold **BOOT**,
+press and release **RST**, release **BOOT** and connect again. Coming from 1.0.x: 1.1.0 changed
+the flash layout, so tick *Erase all* once.
+
+### 2. Updates over Bluetooth
+
+From 1.1.0 on, updates need no cable ([guide](docs/update-over-bluetooth.md)):
+
+1. Hold the adapter's **BOOT** button for 3 s until the LED is steady purple (update mode).
+2. Open the **[Bluetooth updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)**
+   in Chrome or Edge (Windows, macOS, Linux, Android) or in Bluefy on iPhone/iPad.
+3. **Connect**, then **Install**. It takes about half a minute; the adapter restarts by itself.
+
+A failed or interrupted update leaves the running firmware untouched, and a new firmware that
+doesn't start properly is rolled back. In update mode the adapter advertises as
+`AcaiaBridge-xxxxxx` and the bridge is off; afterwards it is `LUNAR-xxxxxx` again.
+
+### 3. Pair with the Move 2.0
+
+Once, in the Make Coffee Yours app ([guide with troubleshooting](docs/pair-with-move.md)):
+
+1. Switch the scale on and wait until the adapter's LED turns **yellow**.
+2. In the app, connect the machine, then the scale `LUNAR-xxxxxx`.
+3. Settings → turn **Offline mode** (*Offline-Modus*) on, or off and on again → **Save** (*Speichern*).
+4. Close the app or switch off the phone's Bluetooth: the adapter accepts one connection at a
+   time, and a connected phone hides it from the machine.
+
+The app identifies the scale by its serial number, which the adapter reports as its Bluetooth
+address (e.g. `28372F80E382`). Pair again only after changing the identity: another ESP32 board
+or a different `BRIDGE_NAME_PREFIX`. Updates keep the pairing. If the phone saw an older firmware,
+switch its Bluetooth off and on once so iOS refreshes its cache.
+
+### 4. Brewing
+
+1. Switch the scale on; the LED turns yellow.
+2. Put the cup on the scale and wait a second: the adapter tares it.
+3. Start the shot. A few seconds in, the machine connects (LED blue) and stops at its target weight.
+
+The Move only listens to the weight: it sends no tare, timer or heartbeat, and it connects only
+after the shot has started. That's why the adapter tares when the cup is put down
+(`BRIDGE_AUTO_TARE`). If the cup wasn't tared, it zeroes the weight when the machine connects
+(`BRIDGE_TARE_ON_CLIENT_CONNECT`), so the cup never counts towards the target.
+
+### Status LED
+
+| LED | Meaning |
+|---|---|
+| red, blinking | searching for the scale; the Lunar is hidden from the machine |
+| yellow | scale connected; Lunar visible, waiting for the machine |
+| blue | machine connected; weight is being relayed |
+| purple | update mode: waiting for firmware, bridge off |
+| purple, fast blinking | receiving firmware |
+
+## Development
+
+### Build
 
 ESP-IDF **v5.4.4**. By default the Makefile uses a local install at `~/esp/esp-idf-v5.4.4`
 (override with `IDF_DIR=...`).
 
 ```sh
 make build           # firmware → build/
+make test            # host unit tests (protocols, drivers, tare, update session)
 make ota             # update package → build/acaia-bridge-esp32s3-vX.Y.Z-ota_update.bin
 make updater         # Bluetooth updater at http://localhost:8000, offering that package
-make test            # host unit tests (protocols, drivers, update session)
 make menuconfig      # "Acaia Bridge" menu for project options
 make shell           # shell with the IDF environment loaded
 ```
@@ -121,7 +155,7 @@ make shell           # shell with the IDF environment loaded
 Without a local install, add `DOCKER=1` to any target to use the official image
 `espressif/idf:v5.4.4` (output goes to `build-docker/`).
 
-## Flash and monitor
+### Flash and monitor
 
 ```sh
 make flash                             # auto-detects /dev/cu.usbmodem*
@@ -132,82 +166,18 @@ make flash-monitor
 
 With `DOCKER=1`, flashing runs on the host via [esptool](https://github.com/espressif/esptool)
 (`uvx esptool`, or set `ESPTOOL=esptool`) and `monitor` uses `screen` (quit with Ctrl-A K),
-because Docker Desktop on macOS cannot pass USB devices into containers.
+because Docker Desktop on macOS cannot pass USB devices into containers. The firmware logs its
+version at boot (`acaia-bridge X.Y.Z`).
 
-## Flashing a release
-
-No ESP-IDF needed. Any ESP32-S3 board works (all have at least 4 MB flash). Each
-[release](../../releases) has three assets:
-
-- `acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin`: the complete image (bootloader, partition
-  table, app) for flashing over USB at address `0x0`.
-- `acaia-bridge-esp32s3-vX.Y.Z-ota_update.bin`: the app alone, for
-  [updates over Bluetooth](docs/update-over-bluetooth.md).
-- `acaia-bridge-esp32s3-vX.Y.Z.zip`: both images, a flashing guide (README), the changelog, the
-  license and the separate images with `flash_args`.
-
-Connect the board with a USB data cable. On boards with two USB-C ports use the native **USB**
-port, not **UART/COM**.
-
-**In the browser** (Chrome or Edge on desktop; step-by-step guide: [docs/flash-in-browser.md](docs/flash-in-browser.md)):
-
-1. Open [ESP Tool](https://espressif.github.io/esptool-js/), baudrate `460800`, **Connect**, pick the port.
-2. Change Flash Address from the pre-filled `0x1000` to **`0x0`**, choose the `-to_flash_via_usb.bin` file, **Program**.
-3. **Disconnect**, then press **RST** on the board.
-
-**With esptool** (`uvx esptool` runs it via [uv](https://docs.astral.sh/uv/); or `pip install esptool`):
+A release image can also be flashed from the command line (`uvx` runs esptool via
+[uv](https://docs.astral.sh/uv/); `PORT` is `/dev/cu.usbmodem*` on macOS, `/dev/ttyACM0` on Linux,
+`COMx` on Windows; over 1.0.x run `erase-flash` first):
 
 ```sh
 uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin
 ```
 
-`PORT` is `/dev/cu.usbmodem*` on macOS, `/dev/ttyACM0` on Linux, `COMx` on Windows.
-
-If the board is not detected, enter download mode by hand: hold **BOOT**, press and release
-**RESET**, release **BOOT**, flash again, then press **RESET**.
-
-After flashing, the LED blinks red until the scale is connected (see [Status LED](#status-led)).
-Later updates go [over Bluetooth](docs/update-over-bluetooth.md); flashing over USB still works
-and always boots the flashed version. Both keep the pairing with the machine: the adapter's
-Bluetooth identity comes from the chip, not from the firmware.
-
-The first USB flash of 1.1.0 or later over 1.0.x changes the flash layout: tick *Erase all* in ESP Tool (or run
-`esptool … erase-flash` first) so no remains of the old layout are left.
-
-CI (`.github/workflows/ci.yml`) also builds the firmware on every push and pull request and
-uploads the same files as a workflow artifact (`acaia-bridge-esp32s3-to_flash_via_usb.bin`,
-`acaia-bridge-esp32s3-ota_update.bin`), e.g. for testing a branch.
-
-## Releases and versioning
-
-Versions follow [Semantic Versioning](https://semver.org) and are derived from
-[Conventional Commits](https://www.conventionalcommits.org) by
-[release-please](https://github.com/googleapis/release-please):
-
-1. Every push to `main` (after tests and build pass) updates a release pull request that bumps
-   `version.txt` and adds the new entries to `CHANGELOG.md`.
-2. Merging that pull request raises the version; CI then tags `vX.Y.Z`, creates the GitHub release
-   and attaches the firmware built from that commit. The flashing guide inside the zip is
-   `release/README.md` (`{{VERSION}}` and `{{REPOSITORY_URL}}` are filled in by CI).
-
-| Commit | Version bump |
-|---|---|
-| `fix: …` | patch |
-| `feat: …` | minor |
-| `feat!: …` or a `BREAKING CHANGE:` footer | major (minor while the version is 0.x) |
-| `docs:`, `ci:`, `build:`, `refactor:`, `test:`, `chore:` | none, hidden from the changelog |
-
-ESP-IDF reads `version.txt` as the app version, so the firmware logs it at boot
-(`acaia-bridge 0.1.0`). Don't edit `version.txt` or `CHANGELOG.md` by hand; release-please owns them.
-
-Each push to `main` also deploys the [Bluetooth updater](web/updater/) to GitHub Pages, together
-with the latest release's `-ota_update.bin` and a `manifest.json` (version, size, SHA-256).
-
-The repository needs *Settings → Actions → General → Workflow permissions*: "Read and write
-permissions" and "Allow GitHub Actions to create and approve pull requests", and *Settings → Pages
-→ Source*: "GitHub Actions".
-
-## Configuration (`make menuconfig` → Acaia Bridge)
+### Configuration (`make menuconfig` → Acaia Bridge)
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -215,7 +185,7 @@ permissions" and "Allow GitHub Actions to create and approve pull requests", and
 | `BRIDGE_ADVERTISE_WITHOUT_SCALE` | off | advertise even with no real scale, to test the machine side alone |
 | `BRIDGE_AUTO_TARE` | on | tare as soon as a cup (≥ 20 g) is put down or taken off while the machine is not connected; slow changes such as pouring don't trigger it |
 | `BRIDGE_TARE_ON_CLIENT_CONNECT` | on | when the machine connects with an untared cup on the scale, zero the weight (instantly in software, then the real scale, with retries); a reconnect within 10 s keeps the zero |
-| `BRIDGE_STATUS_LED` | on | status on an addressable RGB LED (WS2812), see below |
+| `BRIDGE_STATUS_LED` | on | status on an addressable RGB LED (WS2812) |
 | `BRIDGE_STATUS_LED_GPIO` | 48 | LED pin (DevKitC-1 v1.0: 48, v1.1: 38) |
 | `BRIDGE_STATUS_LED_BRIGHTNESS` | 24 | 1–255 |
 | `BRIDGE_LOG_SCAN_RESULTS` | off | log every named BLE device seen while scanning (find the name of a new scale) |
@@ -228,24 +198,18 @@ permissions" and "Allow GitHub Actions to create and approve pull requests", and
 Flash layout, bootloader rollback and BLE MTU are set in `sdkconfig.defaults` and `partitions.csv`.
 `sdkconfig.defaults` only applies to a new `sdkconfig`: after pulling 1.1.0, run `make fullclean`
 once (it also deletes `sdkconfig`; redo your menuconfig changes afterwards). `make ota` refuses to
-package an app built with an older `sdkconfig`.
+package an app built with an older `sdkconfig`. New Kconfig options also need `idf.py reconfigure`.
 
-## Status LED
-
-| LED | Meaning |
-|---|---|
-| red, blinking | searching for the real scale; emulated Lunar hidden |
-| yellow | scale connected; Lunar visible, waiting for the coffee machine |
-| blue | coffee machine connected; weight is being relayed |
-| purple | update mode: waiting for firmware over Bluetooth, bridge off |
-| purple, fast blinking | receiving firmware |
-
-## Architecture
+### Architecture
 
 ```
 main/
 ├── main.cpp                    composition root, app loop
-├── bridge/Bridge               mediator: scale readings → Acaia, Acaia commands → scale
+├── bridge/
+│   ├── Bridge                  mediator: scale readings → Acaia, Acaia commands → scale
+│   ├── TareController          when to zero and when to tare the real scale (pure, host-tested)
+│   ├── AutoTare                cup placed / removed detection (pure, host-tested)
+│   └── SoftwareTare            instant zero with hand-over to the scale's own tare
 ├── status/                     status LED: LedPattern (pure, host-tested) + StatusLed (WS2812)
 ├── ota/                        firmware update over BLE
 │   ├── OtaProtocol, AppImage   pure wire format and image header check (host-tested)
@@ -263,6 +227,8 @@ main/
     ├── ScaleClient             NimBLE central: scan, connect, subscribe, feed driver
     └── drivers/                one class per scale model + Drivers.cpp registration
 web/updater/                    Bluetooth updater page (Web Bluetooth, no build step)
+docs/                           user guides (USB flashing, Bluetooth updates, pairing)
+release/README.md               guide inside the release zip
 partitions.csv                  flash layout, frozen since 1.1.0
 ```
 
@@ -276,7 +242,7 @@ partitions.csv                  flash layout, frozen since 1.1.0
   only the update service. Switching restarts the chip. The GATT table is the same in both.
 - BLE: [esp-nimble-cpp](https://github.com/h2zero/esp-nimble-cpp) (C++ wrapper over NimBLE).
 
-## Adding a scale
+### Adding a scale
 
 1. Create `main/scale/drivers/MyScale.{hpp,cpp}`. Most drivers decode without state and derive
    from `DecodingDriver`, which supplies `name()` and `onNotify()`:
@@ -308,7 +274,62 @@ partitions.csv                  flash layout, frozen since 1.1.0
    name in `test/test_driver_registry.cpp`. Driver files are globbed: run `make fullclean build`
    (or `idf.py reconfigure`) once after adding a file.
 
-## Protocol references
+How the built-in drivers recognise their scale, and how well each protocol is documented:
+
+| Scale | Advertised name / match | Protocol sources |
+|---|---|---|
+| Eureka Precisa / Solo Barista | `CFS-9002` / `LSJ-001` | 2 |
+| Decent Scale (+ ButtsHaus clones) | `Decent Scale…`, `ButtsHaus Scale…` | 2 |
+| EspressiScale (DIY) | `EspressiScale` | 2 + firmware |
+| DiFluid Microbalance / Microbalance Ti | service `00EE` / `00DD`, or name `Microbalance…` | 3 incl. vendor doc |
+| Felicita Arc / Parallel / Incline | contains `felicita` | 2 |
+| Hiroia Jimmy | `HIROIA…` | 2 |
+| Skale II (Atomax) | `Skale…` | 2 |
+| Varia AKU / AKU Mini | contains `Varia AKU` / `AKU MINI` | 2 |
+| Goat Story Gina | service `91341521-…` | 1 |
+| Bookoo Themis Mini / Ultra | contains `BOOKOO_SC` | 4 incl. vendor doc |
+| Timemore Black Mirror | contains `Timemore Scale` | 1 |
+| Timemore Basic 3 | `Basic3`, `Basic 3`, `Timemore…Basic` | 1 |
+| Timemore Dot | `TES017`, `Timemore…Dot` | 2 (commands differ) |
+| Smartchef | contains `smartchef` | 2 |
+| Blackcoffee.io | contains `blackcoffee` / `my_scale` | 1 |
+| Futula Kitchen Scale 3 (LEFU CK811) | contains `LFSmart Scale`, `LEFU-CK811…` | 3 |
+| Mantabrew WeighMaster 2.0 | contains `WeighMaster` / `Mantabrew` | 1 |
+| WeighMyBru (DIY) | `WeighMyBru…` | 2 + firmware |
+| DIY mpy-coffee / coffee-scale (beeb) | `mpy-coffee` / `coffee-scale` | 2 + firmware |
+
+### Releases and versioning
+
+Versions follow [Semantic Versioning](https://semver.org) and are derived from
+[Conventional Commits](https://www.conventionalcommits.org) by
+[release-please](https://github.com/googleapis/release-please):
+
+1. Every push to `main` (after tests and build pass) updates a release pull request that bumps
+   `version.txt` and adds the new entries to `CHANGELOG.md`.
+2. Merging that pull request raises the version; CI then tags `vX.Y.Z`, creates the GitHub release
+   and attaches the firmware built from that commit: `-to_flash_via_usb.bin`, `-ota_update.bin`
+   and a zip with both, the separate images, the changelog, the license and a flashing guide
+   (`release/README.md`, `{{VERSION}}` and `{{REPOSITORY_URL}}` filled in by CI).
+
+| Commit | Version bump |
+|---|---|
+| `fix: …` | patch |
+| `feat: …` | minor |
+| `feat!: …` or a `BREAKING CHANGE:` footer | major |
+| `docs:`, `ci:`, `build:`, `refactor:`, `test:`, `chore:` | none, hidden from the changelog |
+
+Don't edit `version.txt` or `CHANGELOG.md` by hand; release-please owns them. ESP-IDF reads
+`version.txt` as the app version.
+
+Each push to `main` also deploys the [Bluetooth updater](web/updater/) to GitHub Pages, together
+with the latest release's `-ota_update.bin` and a `manifest.json` (version, size, SHA-256). CI also
+uploads the firmware of every push and pull request as a workflow artifact, e.g. for testing a branch.
+
+The repository needs *Settings → Actions → General → Workflow permissions*: "Read and write
+permissions" and "Allow GitHub Actions to create and approve pull requests", and *Settings → Pages
+→ Source*: "GitHub Actions".
+
+### Protocol references
 
 The drivers re-implement byte formats documented by these projects; no code was copied.
 

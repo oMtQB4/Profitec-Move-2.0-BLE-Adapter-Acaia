@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="title desc">
+  <title id="title">How the adapter works</title>
+  <desc id="desc">Your Bluetooth scale sends its weight to the ESP32-S3 adapter, which appears as the Acaia Lunar LUNAR-xxxxxx to the Profitec Move 2.0. Tare and timer commands go the other way.</desc>
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#A4561B"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .title { font-size: 21px; font-weight: 700; fill: #2B1E16; }
+      .sub { font-size: 15px; fill: #5A4A3F; }
+      .dark .title { fill: #F6F1EA; }
+      .dark .sub { fill: #E39A5B; font-family: ui-monospace, Menlo, Consolas, monospace; }
+      .label { font-size: 14px; font-weight: 600; fill: #A4561B; }
+      .flow { stroke: #A4561B; stroke-width: 3; fill: none; marker-end: url(#head); }
+    </style>
+  </defs>
+
+  <rect width="960" height="300" rx="24" fill="#F6F1EA"/>
+
+  <!-- Your scale -->
+  <g>
+    <rect x="24" y="48" width="240" height="204" rx="20" fill="#FFFDF9" stroke="#E2D6C9" stroke-width="2"/>
+    <rect x="74" y="98" width="140" height="10" rx="5" fill="#C9BBAD"/>
+    <rect x="84" y="110" width="120" height="34" rx="9" fill="#2B1E16"/>
+    <rect x="114" y="117" width="60" height="20" rx="4" fill="#3E2C21"/>
+    <text x="144" y="132" text-anchor="middle" font-size="13" font-weight="700" fill="#9FD38B" style="font-family: ui-monospace, Menlo, Consolas, monospace">36.4 g</text>
+    <text class="title" x="144" y="196" text-anchor="middle">Your scale</text>
+    <text class="sub" x="144" y="222" text-anchor="middle">e.g. Eureka Precisa</text>
+  </g>
+
+  <!-- ESP32-S3 adapter -->
+  <g class="dark">
+    <rect x="360" y="48" width="240" height="204" rx="20" fill="#2B1E16"/>
+    <rect x="420" y="84" width="120" height="70" rx="8" fill="#3E2C21" stroke="#E39A5B" stroke-width="2"/>
+    <rect x="460" y="100" width="40" height="38" rx="4" fill="#C9CED3"/>
+    <g stroke="#C9CED3" stroke-width="2">
+      <line x1="466" y1="94" x2="466" y2="100"/><line x1="476" y1="94" x2="476" y2="100"/>
+      <line x1="486" y1="94" x2="486" y2="100"/><line x1="494" y1="94" x2="494" y2="100"/>
+      <line x1="466" y1="138" x2="466" y2="144"/><line x1="476" y1="138" x2="476" y2="144"/>
+      <line x1="486" y1="138" x2="486" y2="144"/><line x1="494" y1="138" x2="494" y2="144"/>
+    </g>
+    <circle cx="440" cy="102" r="6" fill="#E8C547"/>
+    <circle cx="440" cy="102" r="10" fill="#E8C547" opacity="0.25"/>
+    <rect x="530" y="108" width="16" height="22" rx="4" fill="#9AA3AB"/>
+    <text class="title" x="480" y="196" text-anchor="middle">ESP32-S3 adapter</text>
+    <text class="sub" x="480" y="222" text-anchor="middle">LUNAR-xxxxxx</text>
+  </g>
+
+  <!-- Profitec Move 2.0 -->
+  <g>
+    <rect x="696" y="48" width="240" height="204" rx="20" fill="#FFFDF9" stroke="#E2D6C9" stroke-width="2"/>
+    <rect x="766" y="78" width="100" height="44" rx="8" fill="#5A4A3F"/>
+    <rect x="806" y="122" width="20" height="10" fill="#3E2C21"/>
+    <rect x="796" y="132" width="40" height="8" rx="3" fill="#2B1E16"/>
+    <line x1="836" y1="136" x2="862" y2="136" stroke="#2B1E16" stroke-width="6" stroke-linecap="round"/>
+    <path d="M803 146 h26 l-3 14 h-20 z" fill="#FFFDF9" stroke="#A4561B" stroke-width="2"/>
+    <rect x="766" y="162" width="100" height="6" rx="3" fill="#C9BBAD"/>
+    <text class="title" x="816" y="196" text-anchor="middle">Profitec Move 2.0</text>
+    <text class="sub" x="816" y="222" text-anchor="middle">thinks: Acaia Lunar</text>
+  </g>
+
+  <!-- flows -->
+  <text class="label" x="312" y="110" text-anchor="middle">weight</text>
+  <line class="flow" x1="274" y1="122" x2="348" y2="122"/>
+  <line class="flow" x1="348" y1="176" x2="274" y2="176"/>
+  <text class="label" x="312" y="200" text-anchor="middle">tare / timer</text>
+
+  <text class="label" x="648" y="110" text-anchor="middle">weight</text>
+  <line class="flow" x1="610" y1="122" x2="684" y2="122"/>
+  <line class="flow" x1="684" y1="176" x2="610" y2="176"/>
+  <text class="label" x="648" y="200" text-anchor="middle">tare / timer</text>
+</svg>

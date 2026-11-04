@@ -7,7 +7,8 @@ browser. Nothing to install, and the firmware file never leaves your computer.
 
 - **Chrome, Edge or Opera on a desktop computer** (Windows, macOS, Linux). Safari and Firefox can't
   access serial ports; use the [command line](../README.md#flashing-a-release) there.
-- The ESP32-S3 board and a **USB data cable**. On boards with two USB-C ports use the one labelled
+- An ESP32-S3 board (e.g. this [ESP32-S3-DevKitC-1 N16R8](https://amzn.eu/d/075jnXAs)) and a
+  **USB data cable**. On boards with two USB-C ports use the one labelled
   **USB**, not **COM/UART**.
 - The firmware: `acaia-bridge-esp32s3-vX.Y.Z-to_flash_via_usb.bin` from the
   [latest release](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases/latest).
