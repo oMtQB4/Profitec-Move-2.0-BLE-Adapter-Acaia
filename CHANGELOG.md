@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/compare/v1.1.1...v1.2.0) (2026-11-07)
+
+
+### Features
+
+* BLE configurator ([ac1cf39](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/commit/ac1cf3923051931483dfc7d97ffd279acf0de216))
+* BLE configurator (missing files) ([964fb32](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/commit/964fb3230f74e137e00cc34acf79d05bd1d760fd))
+
 ## [1.1.1](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/compare/v1.1.0...v1.1.1) (2026-11-04)
 
 
