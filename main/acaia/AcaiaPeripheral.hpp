@@ -7,6 +7,7 @@
 #include <NimBLEDevice.h>
 
 #include "acaia/AcaiaProtocol.hpp"
+#include "common/PeerAddress.hpp"
 
 namespace acaia {
 
@@ -43,11 +44,22 @@ public:
     void disconnectClient();
 
     bool isClientConnected() const { return connHandle_.load() != kNoConnection; }
+    /** Counts connections; a change tells a new client from the one seen before. */
+    uint32_t connectionCount() const { return connections_.load(); }
+    /** Identity address of the current (or last) client. */
+    PeerAddress clientAddress() const { return unpack(peer_.load()); }
+    /** The client subscribed to the weight notifications. */
+    bool isSubscribed() const { return subscribed_.load(); }
+    /** The client wrote an Acaia frame since it connected. */
+    bool clientWrote() const { return wrote_.load(); }
 
     void sendWeight(int32_t weightDg);
 
 private:
     static constexpr uint16_t kNoConnection = 0xFFFF;
+
+    static uint64_t pack(const PeerAddress& address);
+    static PeerAddress unpack(uint64_t packed);
 
     // NimBLEServerCallbacks
     void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override;
@@ -68,6 +80,9 @@ private:
     std::atomic<bool> advertisingWanted_{false};
     std::atomic<uint16_t> connHandle_{kNoConnection};
     std::atomic<bool> subscribed_{false};
+    std::atomic<bool> wrote_{false};
+    std::atomic<uint32_t> connections_{0};
+    std::atomic<uint64_t> peer_{0}; // PeerAddress: 6 address bytes, type in byte 6
     std::atomic<uint8_t> batteryPct_{100};
 };
 

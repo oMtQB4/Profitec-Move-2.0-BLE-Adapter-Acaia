@@ -59,7 +59,8 @@ Flashing a newer release does **not** require pairing again: the identity comes 
 | The machine doesn't connect during the shot (LED stays yellow) | The phone may still hold the connection: close the app or turn off the phone's Bluetooth. Then toggle **Offline mode** off/on and **Save** again in the app. |
 | The app shows old or missing scale data | iOS caches the services of known devices: switch the phone's Bluetooth off and on once, then pair again. |
 | The weight stops or jumps during the shot | Weak Bluetooth signal. Place the bridge within a metre or two of both the scale and the machine. |
-| The scale doesn't tare when the cup is put down | Put it down in one go and wait a second; it needs at least 20 g. The log shows `cup placed or removed: weight zeroed`. |
+| The scale doesn't tare when the cup is put down | Put it down in one go and wait a second; it needs at least 20 g. The log shows `cup placed or removed: weight zeroed`. Check *Auto-tare* in the [configurator](configure-over-bluetooth.md). |
+| The LED turns green, not blue, during the shot | The adapter took the machine for another device. Check *Machine* in the [configurator](configure-over-bluetooth.md); **Forget machine** lets it learn the machine again at the next shot. |
 | The weight doesn't start at 0 | Check that the LED turns blue during the shot; without a tared cup the bridge zeroes when the machine connects. |
 
 For a look behind the scenes, open the serial log (see

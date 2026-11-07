@@ -15,34 +15,52 @@ menu "Acaia Bridge"
             real scale is available. Otherwise the emulated scale is only
             visible while a real scale is connected.
 
-    config BRIDGE_TARE_ON_CLIENT_CONNECT
-        bool "Zero the weight when the coffee machine connects"
-        default y
+    choice BRIDGE_AUTO_TARE_DEFAULT
+        prompt "Auto-tare (default, changeable in the configurator)"
+        default BRIDGE_AUTO_TARE_CUP
         help
-            The Profitec Move 2.0 connects when a shot starts and sends no tare
-            command. With this option the weight it receives starts at 0, like
-            a Lunar in an auto-tare mode. The adapter zeroes instantly with a
-            software offset and also tares the real scale; the offset is
-            dropped once the scale's own tare shows in its readings.
+            The Profitec Move 2.0 connects only a few seconds after the shot has
+            started and sends no tare command, so the adapter zeroes the weight
+            by itself. These are the defaults until the Bluetooth configurator
+            changes them (stored in NVS).
 
-    config BRIDGE_AUTO_TARE
-        bool "Tare when a cup is placed on the scale"
+        config BRIDGE_AUTO_TARE_CUP
+            bool "When a cup is put down, else when the machine connects"
+            help
+                Like a Lunar in its espresso modes: tare as soon as a cup is put
+                down (at least 20 g, placed within 2 s, then steady) or taken
+                off while the machine is not connected. Slow changes such as
+                pouring don't trigger it. When the machine connects with an
+                untared cup on the scale, the weight is zeroed then.
+
+        config BRIDGE_AUTO_TARE_CONNECT
+            bool "When the machine connects"
+            help
+                Zero the weight the moment the coffee machine connects, a few
+                seconds into the shot. Other devices (apps, the configurator)
+                don't trigger it once the machine's address is learned.
+
+        config BRIDGE_AUTO_TARE_OFF
+            bool "Off"
+    endchoice
+
+    config BRIDGE_TARE_SCALE
+        bool "Also tare the real scale (default, changeable in the configurator)"
         default y
         help
-            The Move 2.0 connects only a few seconds after the shot has started,
-            so taring at that moment comes too late. Like a Lunar in its
-            espresso modes, the adapter tares the scale as soon as a cup is put
-            down (at least 20 g, placed within 2 s, then steady) while the
-            machine is not connected. The same happens when the cup is taken
-            off. Slow changes such as pouring don't trigger it. When the machine
-            then connects with less than 20 g on the scale, the zero is kept.
+            The adapter zeroes the weight the machine sees instantly with a
+            software offset. With this option it also sends a tare command to
+            the real scale, so its display shows 0 too. Without it the real
+            scale keeps its own zero.
 
     config BRIDGE_STATUS_LED
         bool "Show status on an addressable RGB LED (WS2812)"
         default y
         help
             Red blinking: searching for the scale. Yellow: scale connected,
-            waiting for the coffee machine. Blue: machine connected.
+            waiting for the coffee machine. Blue: machine connected. Green:
+            another device connected. The configurator can limit the LED to
+            connections or switch it off.
 
     config BRIDGE_STATUS_LED_GPIO
         int "Status LED GPIO"
@@ -53,7 +71,7 @@ menu "Acaia Bridge"
             ESP32-S3-DevKitC-1 v1.0 uses GPIO48, v1.1 uses GPIO38.
 
     config BRIDGE_STATUS_LED_BRIGHTNESS
-        int "Status LED brightness (1-255)"
+        int "Status LED brightness (1-255, default, changeable in the configurator)"
         depends on BRIDGE_STATUS_LED
         range 1 255
         default 24

@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <optional>
 #include <string>
 
 #include <NimBLEDevice.h>
@@ -14,6 +15,8 @@
 
 #include "acaia/AcaiaPeripheral.hpp"
 #include "bridge/Bridge.hpp"
+#include "config/ConfigService.hpp"
+#include "config/SettingsStore.hpp"
 #include "ota/AppValidity.hpp"
 #include "ota/EspFlashTarget.hpp"
 #include "ota/OtaService.hpp"
@@ -33,16 +36,10 @@ constexpr bool kAdvertiseWithoutScale = true;
 constexpr bool kAdvertiseWithoutScale = false;
 #endif
 
-#if CONFIG_BRIDGE_TARE_ON_CLIENT_CONNECT
-constexpr bool kTareOnClientConnect = true;
+#if CONFIG_BRIDGE_STATUS_LED
+constexpr uint8_t kLedBrightness = CONFIG_BRIDGE_STATUS_LED_BRIGHTNESS;
 #else
-constexpr bool kTareOnClientConnect = false;
-#endif
-
-#if CONFIG_BRIDGE_AUTO_TARE
-constexpr bool kAutoTare = true;
-#else
-constexpr bool kAutoTare = false;
+constexpr uint8_t kLedBrightness = 24;
 #endif
 
 #if CONFIG_BRIDGE_UPDATE_BUTTON
@@ -84,6 +81,27 @@ void initNvs()
     ESP_ERROR_CHECK(err);
 }
 
+/** Settings before the configurator changed any: the Kconfig values. */
+config::Settings defaultSettings()
+{
+    config::Settings settings;
+#if CONFIG_BRIDGE_AUTO_TARE_OFF
+    settings.autoTare = false;
+#elif CONFIG_BRIDGE_AUTO_TARE_CONNECT
+    settings.autoTareMode = config::AutoTareMode::MachineConnects;
+#endif
+#if !CONFIG_BRIDGE_TARE_SCALE
+    settings.tareScale = false;
+#endif
+    settings.ledBrightness = kLedBrightness;
+    return settings;
+}
+
+std::optional<std::string> machineText(const std::optional<PeerAddress>& address)
+{
+    return address ? std::optional<std::string>(address->toString()) : std::nullopt;
+}
+
 /** Starts the GATT server once every service is added. */
 void startGattServer(const std::string& name)
 {
@@ -95,6 +113,15 @@ void startGattServer(const std::string& name)
 
 class Led {
 public:
+    void configure(const config::Settings& settings)
+    {
+#if CONFIG_BRIDGE_STATUS_LED
+        led_.configure(settings.ledMode, settings.ledBrightness);
+#else
+        (void)settings;
+#endif
+    }
+
     void show(status::State state)
     {
 #if CONFIG_BRIDGE_STATUS_LED
@@ -111,7 +138,8 @@ private:
 };
 
 [[noreturn]] void runBridge(acaia::AcaiaPeripheral& acaiaPeripheral, ota::OtaService& otaService,
-                            ota::UpdateMode& updateMode, ota::AppValidity& validity)
+                            config::ConfigService& configService, ota::UpdateMode& updateMode,
+                            ota::AppValidity& validity)
 {
     static scale::DriverRegistry registry;
     scale::registerBuiltinDrivers(registry);
@@ -120,10 +148,8 @@ private:
     }
 
     static scale::ScaleClient scaleClient(registry);
-    static bridge::Bridge bridge(scaleClient, acaiaPeripheral,
-                                 {.advertiseWithoutScale = kAdvertiseWithoutScale,
-                                  .tareOnClientConnect = kTareOnClientConnect,
-                                  .autoTare = kAutoTare});
+    static bridge::Bridge bridge(scaleClient, acaiaPeripheral, {.advertiseWithoutScale = kAdvertiseWithoutScale},
+                                 configService.settings(), config::SettingsStore::loadMachine());
     scaleClient.setListener(&bridge);
     acaiaPeripheral.setCommandSink(&bridge);
 
@@ -131,6 +157,7 @@ private:
     bridge.begin();
 
     static Led led;
+    led.configure(configService.settings());
     for (;;) {
         const uint32_t now = nowMs();
         scaleClient.poll();
@@ -140,23 +167,67 @@ private:
         if (updateMode.poll(now)) {
             ota::UpdateMode::restart(true);
         }
-        led.show(status::stateFrom(scaleClient.isConnected(), acaiaPeripheral.isClientConnected()));
+
+        const config::ConfigService::Events events = configService.poll();
+        if (events.settings) {
+            bridge.applySettings(*events.settings);
+            led.configure(*events.settings);
+        }
+        if (events.forgetMachine) {
+            bridge.forgetMachine();
+            config::SettingsStore::saveMachine(std::nullopt);
+        }
+        if (const auto learned = bridge.takeLearnedMachine()) {
+            ESP_LOGI(TAG, "machine learned: %s", learned->toString().c_str());
+            config::SettingsStore::saveMachine(learned);
+        }
+        configService.setStatus({
+            .mode = config::AdapterMode::Bridge,
+            .firmware = esp_app_get_description()->version,
+            .scaleConnected = scaleClient.isConnected(),
+            .scaleName = bridge.scaleName(),
+            .client = bridge.clientKind(),
+            .machine = machineText(bridge.knownMachine()),
+        });
+
+        led.show(status::stateFrom(scaleClient.isConnected(), acaiaPeripheral.isClientConnected(),
+                                   bridge.clientKind() == bridge::ClientKind::Machine));
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-[[noreturn]] void runUpdateMode(ota::OtaService& otaService, ota::UpdateMode& updateMode,
-                                ota::AppValidity& validity)
+[[noreturn]] void runUpdateMode(ota::OtaService& otaService, config::ConfigService& configService,
+                                ota::UpdateMode& updateMode, ota::AppValidity& validity)
 {
     otaService.enterUpdateMode("AcaiaBridge-" + macSuffix());
 
     static Led led;
+    led.configure(configService.settings());
+    std::optional<PeerAddress> machine = config::SettingsStore::loadMachine();
     uint32_t doneAtMs = 0;
     for (;;) {
         // Blocks on the write queue: low latency for the next packet.
         otaService.poll(nowMs(), 10);
         const uint32_t now = nowMs();
         validity.poll(now);
+
+        // Settings can be changed here too, without a scale.
+        const config::ConfigService::Events events = configService.poll();
+        if (events.settings) {
+            led.configure(*events.settings);
+        }
+        if (events.forgetMachine) {
+            machine.reset();
+            config::SettingsStore::saveMachine(std::nullopt);
+        }
+        configService.setStatus({
+            .mode = config::AdapterMode::Update,
+            .firmware = esp_app_get_description()->version,
+            .scaleConnected = false,
+            .scaleName = {},
+            .client = bridge::ClientKind::None,
+            .machine = machineText(machine),
+        });
 
         if (otaService.isDone()) {
             if (doneAtMs == 0) {
@@ -196,17 +267,20 @@ extern "C" void app_main()
     const std::string name = std::string(CONFIG_BRIDGE_NAME_PREFIX) + macSuffix();
     NimBLEDevice::init(name);
 
-    // Same GATT table in both modes; the OTA service comes last so the Acaia
-    // and Device Information handles the machine knows stay the same.
+    // Same GATT table in both modes; the Acaia and Device Information services
+    // come first so the handles the machine knows stay the same, newer
+    // services are appended.
     static acaia::AcaiaPeripheral acaiaPeripheral(name);
     static ota::EspFlashTarget flashTarget;
     static ota::OtaService otaService(flashTarget, esp_app_get_description()->version);
+    static config::ConfigService configService(config::SettingsStore::load(defaultSettings()));
     acaiaPeripheral.begin();
     otaService.registerService(*NimBLEDevice::getServer());
+    configService.registerService(*NimBLEDevice::getServer());
     startGattServer(name);
 
     if (startInUpdateMode) {
-        runUpdateMode(otaService, updateMode, validity);
+        runUpdateMode(otaService, configService, updateMode, validity);
     }
-    runBridge(acaiaPeripheral, otaService, updateMode, validity);
+    runBridge(acaiaPeripheral, otaService, configService, updateMode, validity);
 }

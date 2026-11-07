@@ -35,14 +35,14 @@ jobs:
         run: ./build-test/host_tests
 
   web-test:
-    name: Updater tests
+    name: Web page tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: node --test web/updater/protocol.test.mjs
+      - run: node --test web/updater/protocol.test.mjs web/configurator/protocol.test.mjs
 
   build:
     name: Firmware (ESP32-S3)
@@ -162,12 +162,12 @@ jobs:
           gh release upload "$TAG" "dist/${name}-to_flash_via_usb.bin" "dist/${name}-ota_update.bin" "dist/${name}.zip" \
             --repo "$GITHUB_REPOSITORY" --clobber
 
-  # The Bluetooth updater on GitHub Pages, with the latest release's -ota_update.bin
+  # The Bluetooth updater on GitHub Pages (configurator under config/), with the latest release's -ota_update.bin
   # next to it (browsers can't download release assets from another origin).
   # Runs after every push to main, so page changes and new releases go live.
   # Needs Settings -> Pages -> Source: "GitHub Actions".
   pages:
-    name: Deploy updater
+    name: Deploy web pages
     needs: [release, publish]
     if: ${{ !cancelled() && needs.release.result == 'success' && needs.publish.result != 'failure' }}
     runs-on: ubuntu-24.04
@@ -185,8 +185,9 @@ jobs:
 
       - name: Assemble site
         run: |
-          mkdir -p site/firmware
+          mkdir -p site/firmware site/config
           cp web/updater/index.html web/updater/updater.js web/updater/protocol.js site/
+          cp web/configurator/index.html web/configurator/configurator.js web/configurator/protocol.js site/config/
           tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
           file="acaia-bridge-esp32s3-${tag}-ota_update.bin"
           if [ -n "$tag" ] && gh release download "$tag" --repo "$GITHUB_REPOSITORY" \

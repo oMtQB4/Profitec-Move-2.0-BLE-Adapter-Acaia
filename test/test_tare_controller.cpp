@@ -127,6 +127,51 @@ void testWeightDropAfterLateWindowIsReal()
     TEST_ASSERT_EQUAL_INT32(0, tare.apply(0)); // taken off again: shows 0, not frozen at 100 g
 }
 
+void testSoftwareOnlyTareNeverTouchesTheScale()
+{
+    C tare(C::Options{.tareScale = false});
+    tare.apply(1500);
+    TEST_ASSERT_TRUE(tare.clientConnected(1000) == C::Connect::Zeroed);
+    TEST_ASSERT_EQUAL_INT32(0, tare.apply(1500));
+    TEST_ASSERT_FALSE(tare.scaleTareDue(1000));
+    TEST_ASSERT_FALSE(tare.scaleTareDue(1000 + 10 * C::kConfirmMs));
+    TEST_ASSERT_EQUAL(0, tare.sends());
+    TEST_ASSERT_EQUAL_INT32(360, tare.apply(1860)); // 36 g of espresso
+}
+
+void testSoftwareOnlyZeroOutlastsTheShot()
+{
+    C tare(C::Options{.tareScale = false});
+    tare.apply(1500);
+    tare.clientConnected(1000);
+    tare.apply(1860);
+    tare.clientDisconnected(30000);
+    tare.tick(30000 + C::kReconnectGraceMs);
+    // The scale still reads the cup: dropping the offset would make 186 g appear.
+    TEST_ASSERT_EQUAL_INT32(360, tare.apply(1860));
+    TEST_ASSERT_EQUAL_INT32(-1500, tare.apply(0)); // cup taken off; auto-tare zeroes this
+}
+
+void testSoftwareOnlyCupRemovalIsNotMistakenForScaleTare()
+{
+    C tare(C::Options{.tareScale = false});
+    tare.apply(1500);
+    tare.tare(0);
+    TEST_ASSERT_EQUAL_INT32(-1500, tare.apply(0)); // no hand-over to a scale tare that never comes
+}
+
+void testOptionsChangeAtRuntime()
+{
+    C tare;
+    tare.setOptions(C::Options{.tareScale = false});
+    tare.apply(1500);
+    tare.tare(0);
+    TEST_ASSERT_FALSE(tare.scaleTareDue(0));
+    tare.setOptions(C::Options{.tareScale = true});
+    tare.tare(100);
+    TEST_ASSERT_TRUE(tare.scaleTareDue(100));
+}
+
 // --- AutoTare ---
 
 /** Feeds `weightDg` every 100 ms from `fromMs` up to `toMs`; returns how often it fired. */
@@ -201,6 +246,10 @@ void runTareControllerTests()
     RUN_TEST(testKeepsAutoTaredZeroWhenMachineConnects);
     RUN_TEST(testZeroesOnConnectWhenCupWasNotTared);
     RUN_TEST(testWeightDropAfterLateWindowIsReal);
+    RUN_TEST(testSoftwareOnlyTareNeverTouchesTheScale);
+    RUN_TEST(testSoftwareOnlyZeroOutlastsTheShot);
+    RUN_TEST(testSoftwareOnlyCupRemovalIsNotMistakenForScaleTare);
+    RUN_TEST(testOptionsChangeAtRuntime);
     RUN_TEST(testCupPlacedTaresOnceSettled);
     RUN_TEST(testCupRemovedTaresToo);
     RUN_TEST(testSmallChangesAndNoiseDoNotTare);

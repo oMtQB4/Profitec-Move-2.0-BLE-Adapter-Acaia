@@ -3,6 +3,7 @@
 [![CI](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml/badge.svg)](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/actions/workflows/ci.yml)
 
 **[Bluetooth updater](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/)** ·
+**[Configurator](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/config/)** ·
 [Latest release](https://github.com/oMtQB4/Profitec-Move-2.0-BLE-Adapter-Acaia/releases/latest) ·
 [Flash over USB](docs/flash-in-browser.md) · [Pair with the Move](docs/pair-with-move.md) ·
 [Demo video](https://youtu.be/6yaJZlYYOEI)
@@ -18,7 +19,8 @@ Acaia Lunar (`LUNAR-xxxxxx`), relaying the weight one way and tare/timer command
 - **Works end to end** with the Eureka Precisa: the shot stops at the target weight.
 - **Tares by itself** when you put the cup down, like a Lunar in its espresso modes.
 - **Updates over Bluetooth** from the browser, after a first installation over USB.
-- **Status LED** shows whether the scale and the machine are connected.
+- **Configurable over Bluetooth** from the browser: auto-tare, taring the real scale, status LED.
+- **Status LED** shows whether the scale and the machine (or another device) are connected.
 
 **Demonstration:** [Profitec Move 2.0 - Offline mode with nearly every scale](https://youtu.be/6yaJZlYYOEI)
 
@@ -122,9 +124,23 @@ switch its Bluetooth off and on once so iOS refreshes its cache.
 3. Start the shot. A few seconds in, the machine connects (LED blue) and stops at its target weight.
 
 The Move only listens to the weight: it sends no tare, timer or heartbeat, and it connects only
-after the shot has started. That's why the adapter tares when the cup is put down
-(`BRIDGE_AUTO_TARE`). If the cup wasn't tared, it zeroes the weight when the machine connects
-(`BRIDGE_TARE_ON_CLIENT_CONNECT`), so the cup never counts towards the target.
+after the shot has started. That's why the adapter tares when the cup is put down. If the cup
+wasn't tared, it zeroes the weight when the machine connects, so the cup never counts towards the
+target.
+
+### 5. Settings (optional)
+
+The **[Configurator](https://omtqb4.github.io/Profitec-Move-2.0-BLE-Adapter-Acaia/config/)**
+changes over Bluetooth ([guide](docs/configure-over-bluetooth.md)):
+
+- **Auto-tare** on or off, and when: once the cup has settled (default), or when the machine connects.
+- **Tare the real scale too** (default on): off zeroes only the weight sent to the machine; the
+  scale's display keeps its own zero.
+- **Status LED**: standard, only while something is connected, or off; brightness.
+
+It also shows which machine the adapter has learned. The adapter recognises the Move by its
+behaviour (it subscribes to the weight and never writes) and remembers its Bluetooth address, so
+apps and the configurator don't trigger the machine's tare and light the LED green instead of blue.
 
 ### Status LED
 
@@ -133,6 +149,7 @@ after the shot has started. That's why the adapter tares when the cup is put dow
 | red, blinking | searching for the scale; the Lunar is hidden from the machine |
 | yellow | scale connected; Lunar visible, waiting for the machine |
 | blue | machine connected; weight is being relayed |
+| green | another device connected (an app, the configurator) |
 | purple | update mode: waiting for firmware, bridge off |
 | purple, fast blinking | receiving firmware |
 
@@ -148,6 +165,7 @@ make build           # firmware → build/
 make test            # host unit tests (protocols, drivers, tare, update session)
 make ota             # update package → build/acaia-bridge-esp32s3-vX.Y.Z-ota_update.bin
 make updater         # Bluetooth updater at http://localhost:8000, offering that package
+make configurator    # Bluetooth configurator at http://localhost:8001
 make menuconfig      # "Acaia Bridge" menu for project options
 make shell           # shell with the IDF environment loaded
 ```
@@ -183,17 +201,20 @@ uvx esptool --chip esp32s3 -p PORT write-flash 0x0 acaia-bridge-esp32s3-vX.Y.Z-t
 |---|---|---|
 | `BRIDGE_NAME_PREFIX` | `LUNAR-` | advertised name prefix, MAC suffix appended |
 | `BRIDGE_ADVERTISE_WITHOUT_SCALE` | off | advertise even with no real scale, to test the machine side alone |
-| `BRIDGE_AUTO_TARE` | on | tare as soon as a cup (≥ 20 g) is put down or taken off while the machine is not connected; slow changes such as pouring don't trigger it |
-| `BRIDGE_TARE_ON_CLIENT_CONNECT` | on | when the machine connects with an untared cup on the scale, zero the weight (instantly in software, then the real scale, with retries); a reconnect within 10 s keeps the zero |
+| `BRIDGE_AUTO_TARE_DEFAULT` | cup | default auto-tare: `_CUP` tare once a cup (≥ 20 g) is put down or taken off while the machine is not connected, else when the machine connects; `_CONNECT` only when the machine connects; `_OFF`. A reconnect within 10 s keeps the zero |
+| `BRIDGE_TARE_SCALE` | on | default for also taring the real scale; off zeroes in software only |
 | `BRIDGE_STATUS_LED` | on | status on an addressable RGB LED (WS2812) |
 | `BRIDGE_STATUS_LED_GPIO` | 48 | LED pin (DevKitC-1 v1.0: 48, v1.1: 38) |
-| `BRIDGE_STATUS_LED_BRIGHTNESS` | 24 | 1–255 |
+| `BRIDGE_STATUS_LED_BRIGHTNESS` | 24 | default brightness, 1–255 |
 | `BRIDGE_LOG_SCAN_RESULTS` | off | log every named BLE device seen while scanning (find the name of a new scale) |
 | `BRIDGE_LOG_ACAIA_FRAMES` | on | hex-log machine ↔ adapter frames |
 | `BRIDGE_UPDATE_BUTTON` | on | hold a button for 3 s to enter (or leave) update mode |
 | `BRIDGE_UPDATE_BUTTON_GPIO` | 0 | BOOT button on DevKit boards |
 | `BRIDGE_UPDATE_POWER_CYCLES` | 3 | enter update mode after this many power-ons in a row, each shorter than 10 s (0 = off) |
 | `BRIDGE_UPDATE_MODE_TIMEOUT_MIN` | 5 | leave update mode after this many minutes without an update |
+
+Options marked "default" only apply until the [configurator](docs/configure-over-bluetooth.md)
+changes the setting; from then on the value stored on the adapter wins.
 
 Flash layout, bootloader rollback and BLE MTU are set in `sdkconfig.defaults` and `partitions.csv`.
 `sdkconfig.defaults` only applies to a new `sdkconfig`: after pulling 1.1.0, run `make fullclean`
@@ -207,9 +228,14 @@ main/
 ├── main.cpp                    composition root, app loop
 ├── bridge/
 │   ├── Bridge                  mediator: scale readings → Acaia, Acaia commands → scale
+│   ├── ClientIdentifier        tells the machine from apps and the configurator (pure, host-tested)
 │   ├── TareController          when to zero and when to tare the real scale (pure, host-tested)
 │   ├── AutoTare                cup placed / removed detection (pure, host-tested)
 │   └── SoftwareTare            instant zero with hand-over to the scale's own tare
+├── config/                     settings over Bluetooth
+│   ├── ConfigProtocol          pure record format for settings and status (host-tested)
+│   ├── ConfigService           NimBLE GATT service, applies writes on the app task
+│   └── SettingsStore           settings and learned machine address in NVS
 ├── status/                     status LED: LedPattern (pure, host-tested) + StatusLed (WS2812)
 ├── ota/                        firmware update over BLE
 │   ├── OtaProtocol, AppImage   pure wire format and image header check (host-tested)
@@ -227,7 +253,8 @@ main/
     ├── ScaleClient             NimBLE central: scan, connect, subscribe, feed driver
     └── drivers/                one class per scale model + Drivers.cpp registration
 web/updater/                    Bluetooth updater page (Web Bluetooth, no build step)
-docs/                           user guides (USB flashing, Bluetooth updates, pairing)
+web/configurator/               Bluetooth configurator page, deployed under config/
+docs/                           user guides (USB flashing, Bluetooth updates, settings, pairing)
 release/README.md               guide inside the release zip
 partitions.csv                  flash layout, frozen since 1.1.0
 ```
@@ -321,7 +348,8 @@ Versions follow [Semantic Versioning](https://semver.org) and are derived from
 Don't edit `version.txt` or `CHANGELOG.md` by hand; release-please owns them. ESP-IDF reads
 `version.txt` as the app version.
 
-Each push to `main` also deploys the [Bluetooth updater](web/updater/) to GitHub Pages, together
+Each push to `main` also deploys the [Bluetooth updater](web/updater/) and the
+[configurator](web/configurator/) (under `config/`) to GitHub Pages, together
 with the latest release's `-ota_update.bin` and a `manifest.json` (version, size, SHA-256). CI also
 uploads the firmware of every push and pull request as a workflow artifact, e.g. for testing a branch.
 

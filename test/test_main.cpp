@@ -12,6 +12,8 @@ void runMoveListDriverTests();
 void runMoreDriverTests();
 void runTareControllerTests();
 void runOtaTests();
+void runClientIdentifierTests();
+void runConfigProtocolTests();
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -31,5 +33,7 @@ int main()
     runMoreDriverTests();
     runTareControllerTests();
     runOtaTests();
+    runClientIdentifierTests();
+    runConfigProtocolTests();
     return UNITY_END();
 }

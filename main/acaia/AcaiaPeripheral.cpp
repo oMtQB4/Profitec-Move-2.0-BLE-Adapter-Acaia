@@ -1,5 +1,6 @@
 #include "acaia/AcaiaPeripheral.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <utility>
 
@@ -112,10 +113,39 @@ void AcaiaPeripheral::sendWeight(int32_t weightDg)
     notify(encodeWeight(weightDg));
 }
 
+uint64_t AcaiaPeripheral::pack(const PeerAddress& address)
+{
+    uint64_t packed = static_cast<uint64_t>(address.type) << 48;
+    for (size_t i = 0; i < address.value.size(); ++i) {
+        packed |= static_cast<uint64_t>(address.value[i]) << (8 * i);
+    }
+    return packed;
+}
+
+PeerAddress AcaiaPeripheral::unpack(uint64_t packed)
+{
+    PeerAddress address;
+    for (size_t i = 0; i < address.value.size(); ++i) {
+        address.value[i] = static_cast<uint8_t>(packed >> (8 * i));
+    }
+    address.type = static_cast<uint8_t>(packed >> 48);
+    return address;
+}
+
 void AcaiaPeripheral::onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo)
 {
     (void)server;
-    ESP_LOGI(TAG, "client connected: %s", connInfo.getAddress().toString().c_str());
+    // The identity address once bonded, otherwise the address it connected with.
+    const NimBLEAddress id = connInfo.getIdAddress();
+    PeerAddress address;
+    std::copy(id.getVal(), id.getVal() + address.value.size(), address.value.begin());
+    address.type = id.getType();
+    ESP_LOGI(TAG, "client connected: %s (type %u)", id.toString().c_str(), static_cast<unsigned>(address.type));
+    // Everything about the client before the handle: the app task reads them once it sees the connection.
+    peer_.store(pack(address));
+    wrote_.store(false);
+    subscribed_.store(false);
+    connections_.fetch_add(1);
     connHandle_.store(connInfo.getConnHandle());
 }
 
@@ -139,6 +169,7 @@ void AcaiaPeripheral::onWrite(NimBLECharacteristic* characteristic, NimBLEConnIn
     ESP_LOGI(TAG, "rx %u bytes", static_cast<unsigned>(data.size()));
     ESP_LOG_BUFFER_HEX_LEVEL(TAG, data.data(), data.size(), ESP_LOG_INFO);
 #endif
+    wrote_.store(true);
     for (const ParsedFrame& frame : split(data)) {
         const Command command = classify(frame);
         if (command == Command::Unknown) {

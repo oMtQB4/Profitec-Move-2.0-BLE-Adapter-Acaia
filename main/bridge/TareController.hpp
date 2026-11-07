@@ -22,6 +22,9 @@ namespace bridge {
  *   when the readings don't show the tare in time (lost write, busy scale).
  * - A machine that drops the connection and reconnects within the grace period
  *   is still in the same shot: the zero point is kept, not set again mid-shot.
+ * - Without `tareScale` the real scale is left alone: the zero is a software
+ *   offset only, and it stays until the next tare (the scale display keeps
+ *   showing the full weight).
  */
 class TareController {
 public:
@@ -34,6 +37,8 @@ public:
     struct Options {
         /** Keep the zero on connect when less than a cup's weight is on the scale (auto-tare on). */
         bool keepTaredZeroOnConnect = false;
+        /** Send tare commands to the real scale; otherwise zero in software only. */
+        bool tareScale = true;
     };
 
     enum class Connect {
@@ -44,6 +49,9 @@ public:
 
     TareController() = default;
     explicit TareController(Options options) : options_(options) {}
+
+    /** Takes effect with the next connect or tare. */
+    void setOptions(Options options) { options_ = options; }
 
     Connect clientConnected(uint32_t nowMs)
     {
@@ -64,16 +72,20 @@ public:
     /** Zeroes the weight now and starts taring the real scale. */
     void tare(uint32_t nowMs)
     {
-        software_.zeroAndAwaitScaleTare();
         zeroActive_ = true;
         sends_ = 0;
         nextSendMs_ = nowMs;
+        if (options_.tareScale) {
+            software_.zeroAndAwaitScaleTare();
+        } else {
+            software_.zero(); // scaleTareDue() stays false
+        }
     }
 
     /** True when a tare command should be sent to the real scale now. */
     bool scaleTareDue(uint32_t nowMs) const
     {
-        if (!zeroActive_ || sends_ >= kMaxSends || static_cast<int32_t>(nowMs - nextSendMs_) < 0) {
+        if (!zeroActive_ || !options_.tareScale || sends_ >= kMaxSends || static_cast<int32_t>(nowMs - nextSendMs_) < 0) {
             return false;
         }
         // Always send once; resend only while a tare is still expected.
@@ -97,7 +109,9 @@ public:
         }
         if (disconnectedAtMs_ && nowMs - *disconnectedAtMs_ >= kReconnectGraceMs) {
             disconnectedAtMs_.reset();
-            software_.clear();
+            if (options_.tareScale) {
+                software_.clear(); // the scale has its own zero by now
+            }
             zeroActive_ = false;
         }
     }

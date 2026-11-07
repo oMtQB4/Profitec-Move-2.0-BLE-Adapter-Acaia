@@ -40,7 +40,7 @@ void StatusLed::update(State state, uint32_t nowMs)
     if (strip_ == nullptr) {
         return;
     }
-    const Color color = colorFor(state, nowMs, brightness_);
+    const Color color = colorFor(state, nowMs, brightness_, mode_);
     if (shown_ == color) {
         return;
     }

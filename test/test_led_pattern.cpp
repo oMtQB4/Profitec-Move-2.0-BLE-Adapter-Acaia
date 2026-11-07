@@ -14,6 +14,34 @@ void testStateFromConnections()
     TEST_ASSERT_TRUE(stateFrom(false, true) == State::SearchingScale); // machine alone gets no weight
     TEST_ASSERT_TRUE(stateFrom(true, false) == State::WaitingForMachine);
     TEST_ASSERT_TRUE(stateFrom(true, true) == State::Bridging);
+    TEST_ASSERT_TRUE(stateFrom(true, true, false) == State::OtherClient);
+    TEST_ASSERT_TRUE(stateFrom(false, true, false) == State::SearchingScale);
+}
+
+void testOtherClientIsGreen()
+{
+    TEST_ASSERT_TRUE(colorFor(State::OtherClient, 0, 255) == (Color{0, 255, 0}));
+    TEST_ASSERT_TRUE(colorFor(State::OtherClient, 500, 255) == (Color{0, 255, 0}));
+}
+
+void testActiveOnlyShowsConnections()
+{
+    constexpr LedMode mode = LedMode::ActiveOnly;
+    TEST_ASSERT_TRUE(colorFor(State::SearchingScale, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::WaitingForMachine, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::Bridging, 0, 255, mode) == (Color{0, 0, 255}));
+    TEST_ASSERT_TRUE(colorFor(State::OtherClient, 0, 255, mode) == (Color{0, 255, 0}));
+}
+
+void testOffHidesEverythingButUpdates()
+{
+    constexpr LedMode mode = LedMode::Off;
+    TEST_ASSERT_TRUE(colorFor(State::SearchingScale, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::WaitingForMachine, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::Bridging, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::OtherClient, 0, 255, mode) == kOff);
+    TEST_ASSERT_TRUE(colorFor(State::UpdateMode, 0, 255, mode) == (Color{160, 0, 255}));
+    TEST_ASSERT_TRUE(colorFor(State::Updating, 0, 255, mode) == (Color{160, 0, 255}));
 }
 
 void testSearchingBlinksRed()
@@ -57,4 +85,7 @@ void runLedPatternTests()
     RUN_TEST(testConnectedStatesAreSteady);
     RUN_TEST(testUpdateStates);
     RUN_TEST(testBrightnessScalesChannels);
+    RUN_TEST(testOtherClientIsGreen);
+    RUN_TEST(testActiveOnlyShowsConnections);
+    RUN_TEST(testOffHidesEverythingButUpdates);
 }
